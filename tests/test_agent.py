@@ -327,3 +327,49 @@ def test_guard_runs_the_query_itself_when_self_correction_is_off(db: Database) -
 def test_guard_can_be_switched_off(db: Database) -> None:
     res = Agent(FakeModel([submit("Total is 99.")]), AgentConfig(grounding=False)).run(db, "q")
     assert res.guard == "off" and res.answer == "Total is 99."
+
+
+# --- clarifying questions ----------------------------------------------------------------------
+
+
+def ask(question: str, *options: str) -> ChatTurn:
+    return turn(("ask_user", {"question": question, "options": list(options)}))
+
+
+def test_ask_mode_stops_and_returns_the_question(db: Database) -> None:
+    model = FakeModel([ask("Which region?", "N", "S")])
+    res = Agent(model).run(db, "Total sales in the region?")
+    assert res.stop_reason == "asked_user" and res.asked
+    assert res.clarification_question == "Which region?"
+    assert res.clarification_options == ["N", "S"]
+    assert res.final_sql == ""  # no fallback query when waiting for the user
+    assert "ask_user" in [t["function"]["name"] for t in Agent(model).tools()]
+    assert "When to ask" in model.calls[0]["messages"][0]["content"]
+
+
+def test_resume_with_the_users_answer(db: Database) -> None:
+    model = FakeModel([ask("Which region again?"), submit("Sales in N total 17.")])
+    res = Agent(model).run(
+        db, "Total sales in the region?", clarifications=[("Which region?", "N")]
+    )
+    assert (
+        "You asked: Which region?\nThe user answered: N" in model.calls[0]["messages"][1]["content"]
+    )
+    assert res.stop_reason == "submitted" and res.final_sql == FINAL
+    asked = next(e for e in res.trace if e["type"] == "ask_user")
+    assert asked["outcome"] == "already_clarified"  # asks once only
+    assert res.trace[1] == {"type": "clarification", "asked": "Which region?", "answered": "N"}
+
+
+def test_decline_mode_counts_the_ask_and_continues(db: Database) -> None:
+    model = FakeModel([ask("Which region?"), submit("Assuming N, sales total 17.")])
+    res = Agent(model, AgentConfig(clarify="decline")).run(db, "Total sales in the region?")
+    assert res.asked and res.stop_reason == "submitted"
+    reply = json.loads(model.calls[1]["messages"][-1]["content"])
+    assert reply["status"] == "no_clarification"
+
+
+def test_off_mode_removes_the_tool_and_the_rule(db: Database) -> None:
+    agent = Agent(FakeModel([submit("Sales in N total 17.")]), AgentConfig(clarify="off"))
+    assert "ask_user" not in [t["function"]["name"] for t in agent.tools()]
+    assert "When to ask" not in agent.system_prompt()

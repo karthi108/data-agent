@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from data_agent import paths
-from data_agent.agent import SYSTEM_PROMPT, TOOLS, VERSION, Agent, AgentConfig
+from data_agent.agent import VERSION, Agent, AgentConfig
 from data_agent.baseline import extract_sql
 from data_agent.bird import Question, db_path, load_baseline_prompts, load_questions
 from data_agent.evaluate import Prediction, Record, System, run, summarize, write_records
@@ -91,6 +91,7 @@ def agent_system(agent: Agent) -> System:
             system_error=error,
             stop_reason=res.stop_reason,
             guard=res.guard,
+            asked=res.asked,
             trace=res.trace,
         )
 
@@ -122,6 +123,12 @@ def main() -> None:
     p.add_argument("--no-self-correct", action="store_true", help="agent: accept any submission")
     p.add_argument("--review", action="store_true", help="agent: reviewer on submission (v3)")
     p.add_argument("--no-grounding", action="store_true", help="agent: no grounding guard")
+    p.add_argument(
+        "--clarify",
+        choices=["decline", "off"],
+        default="decline",
+        help="agent: ask_user offered but declined (default; asks are counted), or not offered",
+    )
     args = p.parse_args()
 
     load_dotenv(paths.REPO_ROOT / ".env")
@@ -166,15 +173,17 @@ def main() -> None:
             self_correct=not args.no_self_correct,
             review=args.review,
             grounding=not args.no_grounding,
+            clarify=args.clarify,
         )
-        system = agent_system(Agent(OpenAIChat(model=args.model), agent_config))
+        agent = Agent(OpenAIChat(model=args.model), agent_config)
+        system = agent_system(agent)
         config = {
             "description": f"data agent {VERSION}",
             "agent_version": VERSION,
             **agent_config.to_dict(),
             "query_timeout_s": QUERY_TIMEOUT_S,
-            "system_prompt_sha256": sha256_text(SYSTEM_PROMPT),
-            "tools_sha256": sha256_text(json.dumps(TOOLS, sort_keys=True)),
+            "system_prompt_sha256": sha256_text(agent.system_prompt()),
+            "tools_sha256": sha256_text(json.dumps(agent.tools(), sort_keys=True)),
         }
 
     done = 0

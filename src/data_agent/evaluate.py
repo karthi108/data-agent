@@ -37,6 +37,7 @@ class Prediction:
     system_error: str | None = None  # the system itself failed (API error, crash...)
     stop_reason: str = ""  # agent only: submitted, forced_submit, cost_cap, ...
     guard: str = ""  # agent only: grounding guard outcome (pass, blocked, ...)
+    asked: bool = False  # agent only: called ask_user
     trace: list[dict[str, Any]] | None = None  # agent only: every step, written to traces.jsonl
 
 
@@ -63,6 +64,7 @@ class Record:
     raw_response: str
     stop_reason: str = ""
     guard: str = ""
+    asked: bool = False
     trace: list[dict[str, Any]] | None = None
 
 
@@ -110,6 +112,7 @@ def score(question: Question, pred: Prediction, db_root: Path | None = None) -> 
         raw_response=pred.raw_response,
         stop_reason=pred.stop_reason,
         guard=pred.guard,
+        asked=pred.asked,
         trace=pred.trace,
     )
 
@@ -179,6 +182,7 @@ def summarize(records: list[Record]) -> dict[str, Any]:
         "max_steps": max((r.steps for r in records), default=None),
         "stop_reasons": dict(sorted(stops.items())),
         "grounding_guard": dict(sorted(guards.items())),
+        "clarification_asked": sum(r.asked for r in records),
         "input_tokens_total": sum(r.input_tokens for r in records),
         "output_tokens_total": sum(r.output_tokens for r in records),
         "served_models": sorted({r.served_model for r in records if r.served_model}),

@@ -218,3 +218,32 @@ and what changed since the previous run. Failures are explained, not hidden.
   with the same value) passes. False negatives are not measured.
 - Not yet measured live: how the retry changes the agent's behaviour in a real run. That needs
   a paid run and will be done only with approval.
+
+## 2026-11-24: clarifying questions (agent v4) and the frozen clarification test (no run yet)
+
+- Change: new `ask_user` tool (one short question plus the readings being chosen between) and a
+  prompt rule: ask only when reasonable readings would give different answers (which entity,
+  metric, period, or threshold), not when one reading is natural, the hint settles it, or the
+  database can answer it. Modes (`AgentConfig.clarify`): `ask` for live use (the run stops and
+  returns the question; `Agent.run(..., clarifications=[(asked, answer)])` resumes, and the agent
+  cannot ask twice), `decline` for benchmarks (same tools; the reply is "no one can answer, state
+  your assumption"; asks are counted in `clarification_asked`), `off` (tool not offered).
+  `run_eval.py` uses `decline` by default.
+- Frozen test set, committed before any run:
+  [`clarify/clarify_set_v1.json`](clarify/clarify_set_v1.json), hash pinned in
+  `tests/test_clarify_set.py`. 20 ambiguous questions over 9 BIRD databases (entity: two
+  Schumachers, four heroes named Atlas, 80 users named Chris; time: 64 Monaco Grands Prix;
+  metric: "fastest", "most active", "most popular"; vague thresholds: "high", "large",
+  "recently"; undefined codes: loan status A-D, thrombosis 0-3; grain: 56,822 card printings
+  vs 21,738 distinct cards), every ambiguity checked against the local databases. Plus **20
+  clear controls** on the same databases, so an agent that asks about everything is caught:
+  scoring is balanced accuracy, where "always ask" and "never ask" both score 50%.
+- Runner: `scripts/run_clarify_eval.py` (agent in `ask` mode). It makes paid calls, so it
+  refuses without `--confirm-spend`; it also refuses if the set is not committed and never
+  reuses a run name (first run is the quoted one). Tested end to end with a scripted model.
+- **Not run yet** (no API spending without approval). Estimated cost of one run: about
+  $0.10-0.30.
+- Note for the held-out run: the system prompt and tool list changed after the last dev
+  measurement (v2/v3), because of the clarification rule. The agent's current version has not
+  been measured on dev. A dev run of the final version before the held-out run (about $1) would
+  confirm it did not get worse; that also needs approval.
