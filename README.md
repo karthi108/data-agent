@@ -5,8 +5,8 @@ it plans, explores the schema, writes and runs read-only SQL, checks the result,
 errors, asks when the question is ambiguous, and answers with a chart. See [PLAN.md](PLAN.md).
 
 **Status: week 1 done.** Repo, CI, BIRD Mini-Dev data, frozen split, single-shot baseline, and
-agent v1 (read-only SQL tools, agent loop, traces). Agent v2 is slightly ahead of
-the baseline on dev, within noise; see [`eval/CHANGES.md`](eval/CHANGES.md).
+agent v1 (read-only SQL tools, agent loop, traces). Agent v2 is level with the
+baseline on dev once run-to-run noise is measured; see [`eval/CHANGES.md`](eval/CHANGES.md).
 
 ## Results
 
@@ -20,8 +20,9 @@ Every number here comes from a script in this repo; raw per-question results are
 | Agent v1 (tools + read-only SQL, no explicit self-correction) | dev (150) | 40.7% (61/150) | $0.0060 | 7.9 s / 15.1 s |
 | Agent v2 (+ schema up front, value lookup, submit check) | dev (150) | 48.0% (72/150) | $0.0068 | 6.4 s / 16.6 s |
 
-Dev numbers are what we improve against, so they are not the quoted result. Agent v2 is ahead
-of the baseline on dev but not significantly (sign test p = 0.47, single runs). Held-out numbers:
+Dev numbers are what we improve against, so they are not the quoted result. Run twice each, the
+baseline scored 44.0% / 44.7% and agent v2 48.0% / 47.3%; about 1 question in 6 flips between
+identical runs, and the agent's +3.3-point average lead is not significant (sign test p = 0.90). Held-out numbers:
 none yet. The held-out set is run once per system, after development is done.
 
 ## Reproduce

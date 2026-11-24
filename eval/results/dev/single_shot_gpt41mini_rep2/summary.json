@@ -1,0 +1,117 @@
+{
+  "run_name": "single_shot_gpt41mini_rep2",
+  "system": "single_shot",
+  "config": {
+    "description": "single-shot text-to-SQL (BIRD fixed baseline prompt, 1 call, no retry)",
+    "prompts_sha256": "b060ee9cb69be62a052f5e40367afeb2cf08f345f15ca318fd9a0f9bf52d53ef"
+  },
+  "split": "dev",
+  "limit": null,
+  "model": "gpt-4.1-mini",
+  "temperature": 0,
+  "started_utc": "2026-11-24T10:22:04+00:00",
+  "wall_clock_s": 140.5,
+  "workers": 8,
+  "git": {
+    "commit": "b34d7aca62198123537451086cf6d3f7c0a4e25d",
+    "dirty": true
+  },
+  "split_ids_sha256": "57a91fd7c896500e9b46c531056dad163e86d808a5434d3cc44c765cdc22aa47",
+  "metric": "BIRD strict execution accuracy: set(pred_rows) == set(gold_rows)",
+  "overall": {
+    "n": 150,
+    "correct": 67,
+    "ex": 44.67
+  },
+  "by_difficulty": {
+    "challenging": {
+      "n": 139,
+      "correct": 59,
+      "ex": 42.45
+    },
+    "moderate": {
+      "n": 10,
+      "correct": 7,
+      "ex": 70.0
+    },
+    "simple": {
+      "n": 1,
+      "correct": 1,
+      "ex": 100.0
+    }
+  },
+  "by_db": {
+    "california_schools": {
+      "n": 15,
+      "correct": 5,
+      "ex": 33.33
+    },
+    "card_games": {
+      "n": 21,
+      "correct": 12,
+      "ex": 57.14
+    },
+    "codebase_community": {
+      "n": 9,
+      "correct": 6,
+      "ex": 66.67
+    },
+    "debit_card_specializing": {
+      "n": 4,
+      "correct": 0,
+      "ex": 0.0
+    },
+    "european_football_2": {
+      "n": 10,
+      "correct": 5,
+      "ex": 50.0
+    },
+    "financial": {
+      "n": 13,
+      "correct": 5,
+      "ex": 38.46
+    },
+    "formula_1": {
+      "n": 17,
+      "correct": 8,
+      "ex": 47.06
+    },
+    "student_club": {
+      "n": 11,
+      "correct": 9,
+      "ex": 81.82
+    },
+    "superhero": {
+      "n": 15,
+      "correct": 4,
+      "ex": 26.67
+    },
+    "thrombosis_prediction": {
+      "n": 26,
+      "correct": 8,
+      "ex": 30.77
+    },
+    "toxicology": {
+      "n": 9,
+      "correct": 5,
+      "ex": 55.56
+    }
+  },
+  "failures": {
+    "sql_error": 5,
+    "timeout": 3,
+    "wrong_result": 75
+  },
+  "cost_usd_total": 0.2992,
+  "cost_usd_per_question": 0.00199,
+  "latency_s_p50": 5.12,
+  "latency_s_p95": 11.81,
+  "avg_steps": 1.0,
+  "max_steps": 1,
+  "stop_reasons": {},
+  "input_tokens_total": 371729,
+  "output_tokens_total": 94039,
+  "served_models": [
+    "gpt-4.1-mini-2025-04-14"
+  ]
+}

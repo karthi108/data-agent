@@ -124,3 +124,25 @@ and what changed since the previous run. Failures are explained, not hidden.
   denominator, wrong tie handling.
 - `git.dirty: true` is again only the untracked 3-question smoke run
   ([`results/dev/agent_v2_gpt41mini__smoke3/`](results/dev/agent_v2_gpt41mini__smoke3/)).
+
+## 2026-11-24: run-to-run noise on dev (baseline and agent v2, run twice each)
+
+- Reruns with no code change: `single_shot_gpt41mini_rep2` and `agent_v2_gpt41mini_rep2`
+  ([`results/dev/`](results/dev/)). Comparison: `scripts/compare_runs.py`, output
+  [`noise_dev_baseline_vs_agent_v2.json`](noise_dev_baseline_vs_agent_v2.json).
+- **Totals are stable, single questions are not.** Even at temperature 0:
+  - single-shot: 44.0% then 44.7%. 54 questions right both times, 71 wrong both times,
+    **25 flip** between the two runs;
+  - agent v2: 48.0% then 47.3%. 60 right both times, 67 wrong both times, **23 flip**.
+- **Agent v2 vs baseline over both runs: +3.3 points on average, not significant.** Per
+  question (share of runs correct), the agent is better on 35 questions and worse on 33 (82
+  tied); two-sided sign test p = 0.90. On this dev set, the agent and single-shot cannot be
+  told apart yet.
+- Rerun costs: single-shot $0.30, agent $1.06. Rerun failure counts: single-shot 5 SQL errors,
+  3 timeouts, 75 wrong results; agent 2 timeouts, 77 wrong results. Each rerun's summary shows
+  `git.dirty: true` only because the other rerun's results folder was not committed yet.
+- What this means from now on:
+  - a change on dev must be judged on at least 2 runs, and its gain counted against flips of
+    about 1 question in 6 (≈ 23–25 of 150), not just a total that moves by under a point;
+  - the held-out numbers will be single runs (PLAN.md), so a gap of a few points between
+    systems there must be reported as within noise unless the paired test says otherwise.
