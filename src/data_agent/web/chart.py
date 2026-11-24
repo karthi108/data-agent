@@ -68,7 +68,12 @@ def build_chart(columns: list[str], rows: list[tuple[Any, ...]]) -> dict[str, An
                 "sort": "-x",
                 "axis": {"labelLimit": 220},
             },
-            "x": {"field": "y", "type": "quantitative", "title": y_title},
+            "x": {
+                "field": "y",
+                "type": "quantitative",
+                "title": y_title,
+                "axis": {"labelOverlap": "greedy", "tickCount": 5},
+            },
             "tooltip": tooltip,
         }
         height = 26 * len(values) + 20

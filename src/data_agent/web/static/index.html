@@ -412,6 +412,9 @@ async function ask(question, clarifications) {
   } finally {
     clearInterval(tick); state.busy = false; $("ask-btn").disabled = false;
   }
+  if (state.config && !state.config.demo && typeof response.budget_left_usd === "number") {
+    $("budget-text").textContent = `Budget left today: $${response.budget_left_usd.toFixed(2)}`;
+  }
   const entry = { id: Date.now(), question, clarifications, response, at: new Date().toISOString() };
   saveHistory(entry);
   show(entry);
