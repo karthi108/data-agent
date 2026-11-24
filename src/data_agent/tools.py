@@ -18,7 +18,7 @@ from typing import Any
 
 import sqlglot
 from sqlglot import exp
-from sqlglot.errors import ParseError
+from sqlglot.errors import SqlglotError
 
 from data_agent.sql_exec import ExecResult, connect_readonly, execute_readonly
 
@@ -43,7 +43,7 @@ def check_select_only(sql: str) -> None:
     """Raise UnsafeQueryError unless ``sql`` is exactly one read-only SELECT statement."""
     try:
         statements = [s for s in sqlglot.parse(sql, read="sqlite") if s is not None]
-    except ParseError as exc:
+    except SqlglotError as exc:  # ParseError, TokenError, ...: all mean "refuse"
         raise UnsafeQueryError(f"could not parse SQL: {str(exc).splitlines()[0]}") from exc
     if len(statements) != 1:
         raise UnsafeQueryError(f"exactly one statement allowed, got {len(statements)}")

@@ -1,0 +1,67 @@
+{
+  "run_name": "agent_v1_gpt41mini",
+  "system": "agent",
+  "config": {
+    "description": "data agent v1: schema tools + read-only run_sql + submit_answer",
+    "max_steps": 8,
+    "cost_cap_usd": 0.05,
+    "query_timeout_s": 5.0,
+    "system_prompt_sha256": "0ec16556ba20187f6d8c84547970d4ecf66c4e3cd17e7cd97698acd3e4a34c45",
+    "tools_sha256": "0f318efc3d97da25407c8ead833cc6ee8eea801c4fc20028a9335b71f7d354ce"
+  },
+  "split": "dev",
+  "limit": 3,
+  "model": "gpt-4.1-mini",
+  "temperature": 0,
+  "started_utc": "2026-11-24T10:07:07+00:00",
+  "wall_clock_s": 22.0,
+  "workers": 8,
+  "git": {
+    "commit": "fb6f70314fe0136c490636558c57c1bb25a00a0c",
+    "dirty": true
+  },
+  "split_ids_sha256": "57a91fd7c896500e9b46c531056dad163e86d808a5434d3cc44c765cdc22aa47",
+  "metric": "BIRD strict execution accuracy: set(pred_rows) == set(gold_rows)",
+  "overall": {
+    "n": 3,
+    "correct": 0,
+    "ex": 0.0
+  },
+  "by_difficulty": {
+    "challenging": {
+      "n": 1,
+      "correct": 0,
+      "ex": 0.0
+    },
+    "moderate": {
+      "n": 2,
+      "correct": 0,
+      "ex": 0.0
+    }
+  },
+  "by_db": {
+    "california_schools": {
+      "n": 3,
+      "correct": 0,
+      "ex": 0.0
+    }
+  },
+  "failures": {
+    "wrong_result": 3
+  },
+  "cost_usd_total": 0.0288,
+  "cost_usd_per_question": 0.0096,
+  "latency_s_p50": 13.65,
+  "latency_s_p95": 21.98,
+  "avg_steps": 7.0,
+  "max_steps": 8,
+  "stop_reasons": {
+    "forced_submit": 2,
+    "submitted": 1
+  },
+  "input_tokens_total": 60952,
+  "output_tokens_total": 2766,
+  "served_models": [
+    "gpt-4.1-mini-2025-04-14"
+  ]
+}

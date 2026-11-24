@@ -43,6 +43,7 @@ def test_guard_accepts_selects(sql: str) -> None:
         "SELECT 1; SELECT 2",
         "",
         "SELEC 1 FROM",
+        "SELECT 'unterminated",  # sqlglot TokenError (crashed q400 in agent v1)
     ],
 )
 def test_guard_refuses_everything_else(sql: str) -> None:

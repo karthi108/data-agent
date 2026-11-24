@@ -47,3 +47,44 @@ and what changed since the previous run. Failures are explained, not hidden.
   ([`results/dev/single_shot_gpt41mini__smoke3/`](results/dev/single_shot_gpt41mini__smoke3/)).
   Its untracked folder is why the full run's summary records `git.dirty: true`; the code was at
   the committed state.
+
+## 2026-11-24: agent v1, dev split (worse than the baseline)
+
+- System: agent v1 (`src/data_agent/agent.py` at commit `fb6f703`): `gpt-4.1-mini`
+  tool-calling loop with `list_tables`, `describe_table` (columns, foreign keys, 3 sample rows),
+  read-only `run_sql` (sqlglot SELECT-only guard + `mode=ro`, 5 s timeout, 1,000-row cap) and
+  `submit_answer`; max 8 model calls, $0.05 cost cap, submit forced on the last step. Gets the
+  question and BIRD's evidence, but no schema up front. No explicit self-correction yet (it does
+  see `run_sql` errors and can retry on its own).
+- Script: `scripts/run_eval.py --system agent --split dev --run-name agent_v1_gpt41mini`.
+  Raw results and per-question traces:
+  [`results/dev/agent_v1_gpt41mini/`](results/dev/agent_v1_gpt41mini/).
+- **Dev execution accuracy: 40.7% (61/150), 3.3 points below the single-shot baseline (44.0%).**
+- Cost $0.89 total ($0.0060 per question, 3x the baseline); latency p50 7.9 s, p95 15.1 s;
+  6.0 model calls per question on average.
+- Agent and baseline get different questions right: 40 both, 21 agent only, 26 baseline only,
+  63 neither.
+- Why it does worse (from the traces):
+  - **The step cap is hit too often**: 41/150 questions used all 8 steps and were forced to
+    submit; only 8 of those 41 were right, against 53/108 (49%) when the agent submitted on
+    its own.
+  - **It does not look at the data values.** The baseline prompt shows example values for every
+    column; the agent only sees 3 sample rows per table. 28 of its 448 queries returned 0 rows
+    and it often retried near-identical filters (q2, q8: guessed codes and strings) instead of
+    checking `SELECT DISTINCT` values.
+  - **No plan is written**: with tool use forced every step, the model never writes the plan the
+    prompt asks for (0/150 traces have one).
+  - **Unchecked submissions**: 5 submitted queries fail to run (e.g. q2 `no such column: School`,
+    q61 `DISTINCT aggregates must have exactly one argument`); 10 agent queries hit the 5 s
+    timeout while exploring.
+  - Failure shapes: 63 wrong values, 14 wrong row count, 5 wrong columns, 5 SQL errors,
+    1 timeout, 1 system error.
+- **Bug found**: q400 crashed (`system_error`) because sqlglot raised `TokenError` on a query it
+  could not tokenize and the guard only caught `ParseError`. Fixed after this run (the guard now
+  refuses on any sqlglot error), with a regression test. The 40.7% above includes the bug.
+- `git.dirty: true` in the summary is the untracked 3-question smoke run
+  ([`results/dev/agent_v1_gpt41mini__smoke3/`](results/dev/agent_v1_gpt41mini__smoke3/)),
+  kept as well; the agent code was the committed `fb6f703`.
+- Next (dev only): show distinct values / value search, raise or rebalance the step budget,
+  verify the submitted query before accepting it, let the first turn plan without forcing a
+  tool call.
