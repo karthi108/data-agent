@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Agent</title>
+<script src="https://cdn.jsdelivr.net/npm/vega@5.30.0/build/vega.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-lite@5.21.0/build/vega-lite.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/vega-embed@6.26.0/build/vega-embed.min.js"></script>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e3e2dd;
+    --accent: #2f5bd3; --accent-soft: #e8eefc; --ok: #1f7a4d; --ok-soft: #e3f3ea;
+    --warn: #9a5b00; --warn-soft: #fbf0dc; --err: #b3261e; --err-soft: #fbe4e2;
+    --code: #f1f0ec; --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151514; --panel: #1e1e1c; --text: #ecebe6; --muted: #a09f99; --line: #34332f;
+      --accent: #8aa8ff; --accent-soft: #232b40; --ok: #6fd3a0; --ok-soft: #1b2e24;
+      --warn: #f0b860; --warn-soft: #33291a; --err: #ff8a80; --err-soft: #3a1f1d; --code: #262624;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 28px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); margin: 0 0 18px; }
+  .banner { background: var(--warn-soft); color: var(--warn); border-radius: 8px;
+            padding: 8px 12px; margin-bottom: 16px; font-size: 14px; }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; }
+  .chip { background: var(--panel); border: 1px solid var(--line); color: var(--text);
+          padding: 6px 12px; font-size: 14px; }
+  .chip:hover { border-color: var(--accent); }
+  form { display: flex; gap: 8px; }
+  input[type=text] { flex: 1; min-width: 0; font: inherit; padding: 10px 12px; border-radius: 8px;
+                     border: 1px solid var(--line); background: var(--panel); color: var(--text); }
+  input[type=text]:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .primary { background: var(--accent); color: #fff; border: 0; padding: 10px 18px; }
+  .primary:disabled { opacity: .5; cursor: wait; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+          padding: 18px; margin-top: 18px; }
+  .answer { font-size: 17px; margin: 0 0 10px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; color: var(--muted); }
+  .badge { border-radius: 999px; padding: 2px 10px; font-size: 12.5px; font-weight: 500; }
+  .b-ok { background: var(--ok-soft); color: var(--ok); }
+  .b-warn { background: var(--warn-soft); color: var(--warn); }
+  .b-err { background: var(--err-soft); color: var(--err); }
+  .b-plain { background: var(--code); color: var(--muted); }
+  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+       margin: 20px 0 8px; }
+  pre { background: var(--code); border-radius: 8px; padding: 10px 12px; overflow-x: auto;
+        font: 13px/1.5 var(--mono); margin: 6px 0; white-space: pre-wrap; word-break: break-word; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  #chart { width: 100%; }
+  details.step { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; margin: 8px 0; }
+  details.step[data-kind=error] { border-color: var(--err); }
+  details.step[data-kind=ok] { border-color: var(--ok); }
+  details.step[data-kind=info] { border-color: var(--accent); }
+  details.step summary { cursor: pointer; font-size: 14px; }
+  .clarify p { margin: 0 0 10px; font-size: 16px; }
+  .options { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .error { color: var(--err); }
+  .muted { color: var(--muted); }
+  footer { margin-top: 32px; font-size: 13px; color: var(--muted); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Data Agent</h1>
+  <p class="sub">Ask a question about the <span id="db">database</span> in plain language. The agent
+    explores the schema, runs read-only SQL, fixes its own errors, asks when a question is ambiguous,
+    and every number in its answer must come from a query it ran.</p>
+  <div id="demo-banner" class="banner" hidden>Demo mode: answers are scripted for the example questions
+    (no AI calls). The real agent, tools, database and checks still run.</div>
+  <div class="examples" id="examples"></div>
+  <form id="ask-form">
+    <input type="text" id="question" maxlength="500" placeholder="e.g. How much did we spend in each budget category?" autocomplete="off" required>
+    <button class="primary" id="ask-btn" type="submit">Ask</button>
+  </form>
+  <div id="out"></div>
+  <footer>
+    Read-only access (SELECT only, read-only connection), 5 s per query, max 8 steps and
+    <span id="cap">$0.05</span> per question, daily budget cap.
+    Data: <a href="https://bird-bench.github.io/" rel="noopener">BIRD benchmark</a> (CC BY-SA 4.0).
+    <span id="budget"></span>
+  </footer>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+function el(tag, attrs = {}, ...children) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v; else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v);
+  }
+  for (const c of children) if (c !== null && c !== undefined) n.append(c instanceof Node ? c : String(c));
+  return n;
+}
+let pending = null;  // {question, asked} while waiting for a clarification answer
+
+async function loadConfig() {
+  const cfg = await (await fetch("/api/config")).json();
+  $("db").textContent = `${cfg.database} database (${cfg.tables.join(", ")})`;
+  $("demo-banner").hidden = !cfg.demo;
+  $("cap").textContent = `$${cfg.max_cost_per_question_usd.toFixed(2)}`;
+  if (!cfg.demo) $("budget").textContent = `Budget left today: $${cfg.budget_left_usd.toFixed(2)}.`;
+  for (const ex of cfg.examples) {
+    $("examples").append(el("button", { class: "chip", type: "button", onclick: () => {
+      $("question").value = ex.question; ask(ex.question, []);
+    } }, ex.label));
+  }
+}
+
+async function ask(question, clarifications) {
+  $("ask-btn").disabled = true;
+  $("out").replaceChildren(el("div", { class: "card muted" }, "Thinking: planning, exploring, querying..."));
+  try {
+    const r = await fetch("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, clarifications }) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.detail || `HTTP ${r.status}`);
+    render(question, data);
+  } catch (e) {
+    $("out").replaceChildren(el("div", { class: "card error" }, `Error: ${e.message}`));
+  } finally { $("ask-btn").disabled = false; }
+}
+
+function render(question, d) {
+  const card = el("div", { class: "card" });
+  if (d.status === "budget") { card.append(el("p", {}, d.message)); $("out").replaceChildren(card); return; }
+  if (d.status === "clarify") {
+    pending = { question, asked: d.clarification.question };
+    const box = el("div", { class: "clarify" }, el("p", {}, d.clarification.question));
+    const opts = el("div", { class: "options" });
+    for (const o of d.clarification.options || []) {
+      opts.append(el("button", { class: "chip", type: "button", onclick: () => answerClarification(o) }, o));
+    }
+    const input = el("input", { type: "text", placeholder: "Or type your answer", maxlength: "300" });
+    const f = el("form", { onsubmit: (e) => { e.preventDefault(); if (input.value.trim()) answerClarification(input.value.trim()); } },
+      input, el("button", { class: "primary", type: "submit" }, "Answer"));
+    box.append(opts, f);
+    card.append(box, meta(d), traceView(d.trace));
+    $("out").replaceChildren(card); return;
+  }
+  card.append(el("p", { class: "answer" }, d.answer), meta(d));
+  if (d.chart) { card.append(el("h2", {}, "Chart"), el("div", { id: "chart" })); }
+  if (d.result) card.append(el("h2", {}, `Result (${d.result.row_count} row${d.result.row_count === 1 ? "" : "s"})`), table(d.result));
+  if (d.sql) card.append(el("h2", {}, "SQL"), el("pre", {}, d.sql));
+  card.append(traceView(d.trace));
+  $("out").replaceChildren(card);
+  if (d.chart && window.vegaEmbed) {
+    // Axis colours follow the page's own light/dark palette.
+    const css = getComputedStyle(document.documentElement);
+    const v = (name) => css.getPropertyValue(name).trim();
+    const axis = { labelColor: v("--muted"), titleColor: v("--text"), gridColor: v("--line"),
+                   domainColor: v("--line"), tickColor: v("--line") };
+    const config = { axis, view: { stroke: null }, mark: { color: v("--accent") }, background: "transparent" };
+    vegaEmbed("#chart", { ...d.chart, config }, { actions: false, renderer: "svg" }).catch(() => {});
+  }
+}
+
+function answerClarification(answer) {
+  if (!pending) return;
+  const { question, asked } = pending; pending = null;
+  ask(question, [{ asked, answered: answer }]);
+}
+
+function meta(d) {
+  const guard = { pass: ["Numbers checked against query results", "b-ok"],
+    pass_after_retry: ["Numbers checked (fixed after one retry)", "b-ok"],
+    blocked: ["Answer blocked: numbers did not match the results", "b-err"],
+    no_numbers: ["No numbers to check", "b-plain"] }[d.guard];
+  return el("div", { class: "meta" },
+    guard ? el("span", { class: `badge ${guard[1]}` }, guard[0]) : null,
+    el("span", { class: "badge b-plain" }, `${d.steps} step${d.steps === 1 ? "" : "s"}`),
+    el("span", { class: "badge b-plain" }, `${d.latency_s}s`),
+    el("span", { class: "badge b-plain" }, `$${d.cost_usd.toFixed(4)}`));
+}
+
+function table(res) {
+  const t = el("table");
+  t.append(el("thead", {}, el("tr", {}, ...res.columns.map((c) => el("th", {}, c)))));
+  const body = el("tbody");
+  for (const row of res.rows) {
+    body.append(el("tr", {}, ...row.map((v) => el("td", { class: typeof v === "number" ? "num" : "" }, v === null ? "NULL" : v))));
+  }
+  t.append(body);
+  const wrap = el("div", { class: "table-wrap" }, t);
+  if (res.truncated) wrap.append(el("p", { class: "muted" }, "Showing the first rows only."));
+  return wrap;
+}
+
+function traceView(trace) {
+  const box = el("details", {}, el("summary", {}, el("strong", {}, "Agent trace"), ` (${trace.length} events)`));
+  for (const e of trace) box.append(step(e));
+  return el("div", {}, el("h2", {}, "How it got there"), box);
+}
+
+function step(e) {
+  const s = e.step ? `Step ${e.step}: ` : "";
+  const block = (kind, title, ...body) => el("details", { class: "step", "data-kind": kind }, el("summary", {}, s + title), ...body);
+  switch (e.type) {
+    case "question": return block("info", "Question", el("pre", {}, e.question + (e.evidence ? `\nHint: ${e.evidence}` : "")));
+    case "clarification": return block("info", "Clarification", el("pre", {}, `Asked: ${e.asked}\nAnswer: ${e.answered}`));
+    case "plan": case "thought": return block("info", e.type === "plan" ? "Plan" : "Note", el("pre", {}, e.text));
+    case "list_tables": return block("info", "Listed tables");
+    case "describe_table": return block("info", `Described table ${e.table}`);
+    case "column_values": return block("info", `Looked up values of ${e.table}.${e.column}${e.contains ? ` containing "${e.contains}"` : ""}`);
+    case "sql": case "submit_check": {
+      const title = (e.type === "sql" ? "Ran SQL" : "Checked the submitted query") + (e.error ? " (error)" : ` (${e.row_count} rows)`);
+      return block(e.error ? "error" : "ok", title, el("pre", {}, e.query),
+        e.error ? el("pre", { class: "error" }, e.error) : (e.preview && e.preview.length ? el("pre", {}, e.preview.map((r) => r.join(" | ")).join("\n")) : null));
+    }
+    case "ask_user": return block("info", `Asked the user (${e.outcome})`, el("pre", {}, e.question));
+    case "grounding": return block(e.verdict === "blocked" || e.verdict === "retry" ? "error" : "ok", `Grounding check: ${e.verdict}`,
+      el("pre", {}, `Numbers checked: ${e.checked.join(", ") || "none"}` + (e.ungrounded.length ? `\nNot found in results: ${e.ungrounded.join(", ")}` : "")));
+    case "review": return block("info", `Review: ${e.verdict || "error"}`, el("pre", {}, (e.issues || []).join("\n") || "no issues"));
+    case "submit": return block("ok", "Submitted answer", el("pre", {}, e.answer));
+    case "fallback": return block("error", `Fallback (${e.reason})`, el("pre", {}, e.sql || "no query"));
+    case "error": return block("error", "Model error", el("pre", {}, e.error));
+    default: return block("info", e.type, el("pre", {}, JSON.stringify(e, null, 2)));
+  }
+}
+
+$("ask-form").addEventListener("submit", (e) => { e.preventDefault(); const q = $("question").value.trim(); if (q) ask(q, []); });
+loadConfig();
+</script>
+</body>
+</html>

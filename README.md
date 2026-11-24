@@ -41,6 +41,23 @@ export OPENAI_API_KEY=...
 uv run python scripts/run_eval.py --system single_shot --split dev --run-name single_shot_gpt41mini
 ```
 
+## Web UI
+
+One page: ask a question about a database, get the answer, the result table, a chart and the
+full agent trace (plan, every query with its errors and fixes, value lookups, the submit check,
+the grounding check). Ambiguous questions come back as a clarifying question with options.
+Charts are drawn straight from the final query's rows, so they cannot show a number the query
+did not return. Limits: read-only SQL, $0.05 and 8 steps per question, a daily budget
+(`DATA_AGENT_DAILY_BUDGET_USD`, default $1) and 20 questions per visitor per hour.
+
+```bash
+uv run python scripts/serve.py --demo   # free preview: scripted answers to the 5 examples
+uv run python scripts/serve.py          # real agent (paid, needs OPENAI_API_KEY)
+```
+
+Default database: BIRD `student_club` (budgets, expenses, events, members; 2.6 MB). Set
+`DATA_AGENT_DB` to use another SQLite file.
+
 ## Evaluation rules
 
 - Benchmark: [BIRD Mini-Dev](https://huggingface.co/datasets/birdsql/bird_mini_dev) (SQLite,

@@ -247,3 +247,22 @@ and what changed since the previous run. Failures are explained, not hidden.
   measurement (v2/v3), because of the clarification rule. The agent's current version has not
   been measured on dev. A dev run of the final version before the held-out run (about $1) would
   confirm it did not get worse; that also needs approval.
+
+## 2026-11-24: web UI (no evaluation impact)
+
+- `src/data_agent/web/`: FastAPI app and one page showing the answer, result table, chart and
+  expandable agent trace; clarifying questions come back with option buttons and resume the run.
+- Charts are built from the final query's rows by fixed rules (horizontal bars for
+  category/number, a line for months or dates), not by the model, so they only show numbers the
+  query returned. PLAN.md had the agent produce the chart spec; this is simpler and cannot
+  invent data.
+- Limits: the agent's per-question caps, a daily budget (`DailyBudget`, default $1 per UTC day;
+  a question is refused if it could cross it) and 20 questions per client per hour.
+- Demo mode (`scripts/serve.py --demo`): a scripted stand-in for the model replays fixed tool
+  calls for the 5 example questions, with a visible banner; the real loop, tools, database,
+  submit check and grounding guard still run. Used to build and check the page with no API
+  calls. Checked in the browser: all 5 examples, the clarification round trip, the trace
+  (failed query in red, fix in green), dark mode and phone width (no horizontal scroll).
+- 8 tests (API, clarification round trip, budget refusal and persistence, rate limit, input
+  limits, chart rules, and all 5 demo examples end to end on the real database, where every
+  demo answer passes the grounding guard).
