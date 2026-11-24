@@ -1,0 +1,10 @@
+{
+  "started_utc": "2026-11-24T09:44:46+00:00",
+  "n": 150,
+  "split": "dev",
+  "run_name": "single_shot_gpt41mini",
+  "model": "gpt-4.1-mini",
+  "workers": 8,
+  "limit": null,
+  "confirm_frozen_heldout_run": false
+}

@@ -13,7 +13,12 @@ Every number here comes from a script in this repo; raw per-question results are
 [`eval/results/`](eval/results/), and every run (good or bad) is logged in
 [`eval/CHANGES.md`](eval/CHANGES.md).
 
-Held-out numbers: none yet. The held-out set is run once per system, after development is done.
+| System | Split | Execution accuracy | Cost / question | Latency p50 / p95 |
+|---|---|---|---|---|
+| Single-shot text-to-SQL (`gpt-4.1-mini`, BIRD fixed prompt) | dev (150) | 44.0% (66/150) | $0.0020 | 4.9 s / 12.6 s |
+
+Dev numbers are what we improve against, so they are not the quoted result. Held-out numbers:
+none yet. The held-out set is run once per system, after development is done.
 
 ## Reproduce
 
