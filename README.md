@@ -6,8 +6,9 @@ and answers with a chart. Every number in an answer must come from a query it ac
 
 ## In 30 seconds
 
-- **Live demo:** not deployed yet ([`deploy/DEPLOY.md`](deploy/DEPLOY.md)). Local preview, no
-  API key needed: `uv run python scripts/serve.py --demo`.
+- **Live demo:** https://data-agent-glgi.onrender.com (free hosting: the first visit after a
+  quiet spell can take about a minute to wake up; capped at $1 of model usage per day). Local
+  preview without an API key: `uv run python scripts/serve.py --demo`.
 - **Held-out result** (BIRD Mini-Dev, 150 questions frozen in git before the first run, one
   run per system, `gpt-4.1-mini`):
 
@@ -98,7 +99,8 @@ SQLite file.
 
 **Deploy:** [`render.yaml`](render.yaml) describes one free Render web service (Frankfurt,
 deploys only after CI passes, `/healthz` health check). Steps, spending controls and the
-free-plan limits are in [`deploy/DEPLOY.md`](deploy/DEPLOY.md). Not deployed yet.
+free-plan limits are in [`deploy/DEPLOY.md`](deploy/DEPLOY.md). Live at
+https://data-agent-glgi.onrender.com since 2026-11-24.
 
 ## Evaluation rules
 

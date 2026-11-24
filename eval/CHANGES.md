@@ -371,3 +371,11 @@ and what changed since the previous run. Failures are explained, not hidden.
   Schumacher, which Monaco Grand Prix, how many "cards") it picks a reading instead of asking.
   This is a weak result and it stands as recorded. Improving it needs a new, separately
   frozen question set, so this one is not re-run after tuning.
+
+## 2026-11-24: live deploy
+
+- Render Blueprint applied from `7bb4aab`; first deploy built in 1 min 6 s.
+  Live at https://data-agent-glgi.onrender.com.
+- Checked without paid calls: `/healthz` ok, live mode (not demo, not paused), `student_club`
+  with 8 tables, daily budget $1.00, Content-Security-Policy and nosniff headers, API docs
+  hidden (404), page renders with no console errors.
