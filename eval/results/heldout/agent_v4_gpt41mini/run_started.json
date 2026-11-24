@@ -1,0 +1,18 @@
+{
+  "started_utc": "2026-11-24T14:08:00+00:00",
+  "n": 150,
+  "system": "agent",
+  "split": "heldout",
+  "run_name": "agent_v4_gpt41mini",
+  "model": "gpt-4.1-mini",
+  "workers": 8,
+  "limit": null,
+  "confirm_frozen_heldout_run": true,
+  "max_steps": 8,
+  "no_schema": false,
+  "no_plan": false,
+  "no_self_correct": false,
+  "review": false,
+  "no_grounding": false,
+  "clarify": "decline"
+}

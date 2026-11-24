@@ -1,0 +1,30 @@
+{
+  "a": {
+    "runs": 1,
+    "ex_per_run": [
+      43.33
+    ],
+    "ex_mean": 43.33,
+    "correct_in_every_run": 65,
+    "wrong_in_every_run": 85,
+    "flipping_questions": 0
+  },
+  "b": {
+    "runs": 1,
+    "ex_per_run": [
+      47.33
+    ],
+    "ex_mean": 47.33,
+    "correct_in_every_run": 71,
+    "wrong_in_every_run": 79,
+    "flipping_questions": 0
+  },
+  "paired": {
+    "questions": 150,
+    "b_better": 30,
+    "a_better": 24,
+    "tied": 96,
+    "mean_ex_difference_b_minus_a": 4.0,
+    "sign_test_p_two_sided": 0.497
+  }
+}

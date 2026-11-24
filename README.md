@@ -1,35 +1,66 @@
 # Data Agent
 
-An autonomous agent that answers plain-language questions (English or French) about a database:
-it plans, explores the schema, writes and runs read-only SQL, checks the result, fixes its own
-errors, asks when the question is ambiguous, and answers with a chart. See [PLAN.md](PLAN.md).
+An AI agent that answers plain-language questions about a database. It plans, looks up real
+values, runs read-only SQL, fixes its own failing queries, asks when a question is ambiguous,
+and answers with a chart. Every number in an answer must come from a query it actually ran.
 
-**Status: week 1 done.** Repo, CI, BIRD Mini-Dev data, frozen split, single-shot baseline, and
-agent v1 (read-only SQL tools, agent loop, traces). Agent v2 is level with the
-baseline on dev once run-to-run noise is measured; see [`eval/CHANGES.md`](eval/CHANGES.md).
+## In 30 seconds
+
+- **Live demo:** not deployed yet ([`deploy/DEPLOY.md`](deploy/DEPLOY.md)). Local preview, no
+  API key needed: `uv run python scripts/serve.py --demo`.
+- **Held-out result** (BIRD Mini-Dev, 150 questions frozen in git before the first run, one
+  run per system, `gpt-4.1-mini`):
+
+| | Single-shot text-to-SQL | This agent |
+|---|---|---|
+| Execution accuracy | 43.3% | **47.3%** |
+| Queries that failed to run | 7 | **0** |
+| Cost per question | $0.002 | $0.007 |
+| Latency p50 / p95 | 6.0 s / 18.1 s | 7.0 s / 19.7 s |
+
+  The +4.0-point gap is **not statistically significant** (paired sign test p = 0.50; about 1
+  question in 6 flips between identical runs). The clear gains are robustness and checked
+  answers: no failing queries, and a **grounding guard** that withheld 2 answers whose SQL was
+  right but whose sentence stated a number no query returned ("85.6%" when the result was
+  85.3).
+- **Clarifying questions:** on a frozen set of 20 ambiguous and 20 clear questions, it asked on
+  2 of 20 ambiguous and 0 of 20 clear (balanced accuracy 55%). It rarely over-asks but mostly
+  guesses when it should ask: a known weakness.
+
+```
+question ─► plan ─► look up real values ─► run read-only SQL ─► error? fix and retry
+                                                   │
+                       submit ─► re-run final query ─► grounding guard ─► answer + chart + trace
+                                                        (numbers must appear in results;
+                                                         1 retry, then "could not answer")
+```
+
+Safety: one SELECT only (parsed with sqlglot) on a read-only connection, 5 s per query,
+8 steps and $0.05 per question, a daily budget and a per-visitor rate limit on the site, and
+database contents are treated as data, never as instructions.
 
 ## Results
 
-Every number here comes from a script in this repo; raw per-question results are in
-[`eval/results/`](eval/results/), and every run (good or bad) is logged in
+Every number here comes from a script in this repo; raw per-question results and agent traces
+are in [`eval/results/`](eval/results/), and every run, good or bad, is explained in
 [`eval/CHANGES.md`](eval/CHANGES.md).
 
 | System | Split | Execution accuracy | Cost / question | Latency p50 / p95 |
 |---|---|---|---|---|
+| **Single-shot text-to-SQL** | **held-out (150), 1 run** | **43.3% (65/150)** | $0.0020 | 6.0 s / 18.1 s |
+| **Agent v4 (final)** | **held-out (150), 1 run** | **47.3% (71/150)** | $0.0072 | 7.0 s / 19.7 s |
 | Single-shot text-to-SQL (`gpt-4.1-mini`, BIRD fixed prompt) | dev (150), 2 runs | 44.0% / 44.7% | $0.0020 | 4.9 s / 12.6 s |
-| Agent v1 (tools + read-only SQL, no explicit self-correction) | dev (150) | 40.7% (61/150) | $0.0060 | 7.9 s / 15.1 s |
+| Agent v1 (tools + read-only SQL) | dev (150) | 40.7% | $0.0060 | 7.9 s / 15.1 s |
 | Agent v2 (+ schema up front, value lookup, submit check) | dev (150), 2 runs | 48.0% / 47.3% | $0.0068 | 6.4 s / 16.6 s |
-| Agent v3 (v2 + reviewer, now off by default) | dev (150), 2 runs | 50.0% / 45.3% | $0.0089 | 10.5 s / 23.9 s* |
+| Agent v3 (v2 + reviewer, now off) | dev (150), 2 runs | 50.0% / 45.3% | $0.0089 | 10.5 s / 23.9 s* |
+| Agent v4 (v2 + grounding guard + clarifying questions) | dev (150) | 46.7% | $0.0075 | 7.2 s / 17.6 s |
 
-Dev numbers are what we improve against, so they are not the quoted result. Run twice each, the
-baseline scored 44.0% / 44.7% and agent v2 48.0% / 47.3%; about 1 question in 6 flips between
-identical runs, and the agent's +3.3-point average lead is not significant (sign test p = 0.90).
-A reviewer step (v3) fixed 15 answers and broke 15, so it is off by default. The grounding
-guard (every number in an answer must come from a query result), replayed offline on agent v2's
-150 dev answers, flagged 3, all real: an invented count, a contradicted result, an unqueried
-percentage. *v3 latency is
-run 2; run 1 hit an API stall. Held-out numbers:
-none yet. The held-out set is run once per system, after development is done.
+What the dev work showed: the agent loop alone (v1) was worse than single-shot; showing the
+schema with example values and letting the agent look up real column values (v2) brought it
+level or slightly ahead; a reviewer step (v3) fixed 15 answers and broke 15, so it is off. On
+the held-out set the grounding guard withheld 3 answers: 2 real catches and 1 false alarm on a
+reformatted date, fixed afterwards (the fix does not affect the scores, which use the SQL).
+*v3 run 1 hit an API stall; latency shown is run 2.
 
 ## Reproduce
 
@@ -83,6 +114,8 @@ free-plan limits are in [`deploy/DEPLOY.md`](deploy/DEPLOY.md). Not deployed yet
 ## Honest limits
 
 - Benchmark accuracy is not real-company accuracy: the databases are public and clean.
-- Held-out numbers will be single runs.
+- Held-out numbers are single runs, and the accuracy gap to single-shot is within noise.
+- The agent asks too rarely on ambiguous questions (2 of 20 on the frozen test).
+- The "agent without self-correction" held-out baseline from the plan was not run.
 - Many text-to-SQL tools exist; the claim is "built and measured", not "first".
 - Built with AI coding assistance.

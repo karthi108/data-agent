@@ -39,13 +39,19 @@ def main() -> None:
         qid = t["question_id"]
         q = questions[qid]
         answer = preds[qid]["raw_response"]
+        # If the guard withheld the answer during the run, check the draft it withheld.
+        withheld = [e for e in t["trace"] if e["type"] == "grounding" and e.get("original_answer")]
+        if withheld:
+            answer = withheld[-1]["original_answer"]
         db = Database(db_path(q.db_id))
         for e in t["trace"]:
             if e["type"] in {"sql", "submit_check"} and e.get("error") is None:
                 db.run_sql(e["query"])
         if preds[qid]["pred_sql"]:
             db.run_sql(preds[qid]["pred_sql"])
-        report = check_answer(answer, db.observed, context=f"{q.question}\n{q.evidence}")
+        report = check_answer(
+            answer, db.observed, f"{q.question}\n{q.evidence}", observed_dates=db.observed_dates
+        )
         verdict = (
             "no_answer"
             if not answer

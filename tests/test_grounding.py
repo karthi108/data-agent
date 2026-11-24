@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from data_agent.grounding import check_answer, extract_numbers, observed_numbers
+from data_agent.grounding import check_answer, date_values, extract_numbers, observed_numbers
 
 
 def test_extract_numbers() -> None:
@@ -31,11 +31,18 @@ def test_observed_numbers_from_cells() -> None:
         ("The share is 0.57.", {57.14}),  # percentage shown as a fraction
         ("Enrollment totals 372,954 students.", {372954.0}),
         ("The difference is -48.", {-48.0}),
-        ("The first visit was on 2015-06-23.", observed_numbers(["2015-06-23"])),
     ],
 )
 def test_grounded_answers_pass(answer: str, observed: set[float]) -> None:
     report = check_answer(answer, observed)
+    assert report.ok, report.ungrounded
+
+
+def test_date_found_in_a_result_cell_passes() -> None:
+    cells = ["2015-06-23"]
+    report = check_answer(
+        "The first visit was on 2015-06-23.", observed_numbers(cells), "", date_values(cells)
+    )
     assert report.ok, report.ungrounded
 
 
@@ -61,3 +68,25 @@ def test_numbers_from_the_question_need_no_grounding() -> None:
 def test_answer_without_numbers_passes() -> None:
     report = check_answer("Borussia Dortmund has the most home wins.", set())
     assert report.ok and report.checked == []
+
+
+def test_date_restated_in_another_format_is_grounded() -> None:
+    # Held-out q176: the question says "19 September 2014", the answer writes "2014-09-19".
+    question = "average risk in force on 19 September 2014, rounded to one decimal place"
+    answer = "Their average chance creation passing risk on 2014-09-19 is 69.5."
+    report = check_answer(answer, {69.5}, question)
+    assert report.ok, report.ungrounded
+    assert "2014-09-19" in report.checked
+
+
+def test_date_from_a_result_cell_is_grounded_and_invented_date_is_caught() -> None:
+    seen = {"2015-06-23"}
+    assert check_answer("The first visit was on June 23, 2015.", set(), "", seen).ok
+    assert check_answer("Activity peaked in June 2015.", set(), "", seen).ok  # month level
+    bad = check_answer("The first visit was on 2015-07-01.", set(), "", seen)
+    assert bad.ungrounded == ["2015-07-01"]
+
+
+def test_ranges_are_not_dates() -> None:
+    report = check_answer("Enrolment for 2014-2015 was 372,954.", {372954.0}, "in 2014-2015")
+    assert report.ok, report.ungrounded

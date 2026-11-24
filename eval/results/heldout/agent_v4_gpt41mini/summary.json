@@ -1,0 +1,137 @@
+{
+  "run_name": "agent_v4_gpt41mini",
+  "system": "agent",
+  "config": {
+    "description": "data agent v4",
+    "agent_version": "v4",
+    "max_steps": 8,
+    "cost_cap_usd": 0.05,
+    "schema_up_front": true,
+    "plan_turn": true,
+    "self_correct": true,
+    "step_reminder": true,
+    "review": false,
+    "grounding": true,
+    "clarify": "decline",
+    "query_timeout_s": 5.0,
+    "system_prompt_sha256": "72d56ed5fdce24e90e7ddc77aaef88bba1202938266d82deeecca2127947bcbb",
+    "tools_sha256": "299c2d4be166fa799b9a18cf068dcd117fc1fdf077a05a97ccb4cb4279bf085c"
+  },
+  "split": "heldout",
+  "limit": null,
+  "model": "gpt-4.1-mini",
+  "temperature": 0,
+  "started_utc": "2026-11-24T14:08:00+00:00",
+  "wall_clock_s": 608.6,
+  "workers": 8,
+  "git": {
+    "commit": "cdb9bde2ee44139e0c30033619f4f4601e93ef2c",
+    "dirty": true
+  },
+  "split_ids_sha256": "57a91fd7c896500e9b46c531056dad163e86d808a5434d3cc44c765cdc22aa47",
+  "metric": "BIRD strict execution accuracy: set(pred_rows) == set(gold_rows)",
+  "overall": {
+    "n": 150,
+    "correct": 71,
+    "ex": 47.33
+  },
+  "by_difficulty": {
+    "challenging": {
+      "n": 137,
+      "correct": 62,
+      "ex": 45.26
+    },
+    "moderate": {
+      "n": 10,
+      "correct": 7,
+      "ex": 70.0
+    },
+    "simple": {
+      "n": 3,
+      "correct": 2,
+      "ex": 66.67
+    }
+  },
+  "by_db": {
+    "california_schools": {
+      "n": 15,
+      "correct": 6,
+      "ex": 40.0
+    },
+    "card_games": {
+      "n": 21,
+      "correct": 6,
+      "ex": 28.57
+    },
+    "codebase_community": {
+      "n": 9,
+      "correct": 7,
+      "ex": 77.78
+    },
+    "debit_card_specializing": {
+      "n": 4,
+      "correct": 3,
+      "ex": 75.0
+    },
+    "european_football_2": {
+      "n": 9,
+      "correct": 6,
+      "ex": 66.67
+    },
+    "financial": {
+      "n": 14,
+      "correct": 1,
+      "ex": 7.14
+    },
+    "formula_1": {
+      "n": 17,
+      "correct": 11,
+      "ex": 64.71
+    },
+    "student_club": {
+      "n": 11,
+      "correct": 4,
+      "ex": 36.36
+    },
+    "superhero": {
+      "n": 15,
+      "correct": 6,
+      "ex": 40.0
+    },
+    "thrombosis_prediction": {
+      "n": 26,
+      "correct": 14,
+      "ex": 53.85
+    },
+    "toxicology": {
+      "n": 9,
+      "correct": 7,
+      "ex": 77.78
+    }
+  },
+  "failures": {
+    "wrong_result": 79
+  },
+  "cost_usd_total": 1.0824,
+  "cost_usd_per_question": 0.00722,
+  "latency_s_p50": 7.04,
+  "latency_s_p95": 19.73,
+  "avg_steps": 4.79,
+  "max_steps": 8,
+  "stop_reasons": {
+    "forced_submit": 16,
+    "submitted": 134
+  },
+  "grounding_guard": {
+    "blocked": 3,
+    "no_numbers": 34,
+    "pass": 112,
+    "pass_after_retry": 1
+  },
+  "clarification_asked": 0,
+  "input_tokens_total": 2402715,
+  "output_tokens_total": 75820,
+  "served_models": [
+    "gpt-4.1-mini-2025-04-14"
+  ]
+}

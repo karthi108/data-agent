@@ -1,0 +1,26 @@
+{
+  "run": "eval/results/heldout/agent_v4_gpt41mini",
+  "verdicts": {
+    "no_numbers": 30,
+    "pass": 118,
+    "flagged": 2
+  },
+  "flagged": [
+    {
+      "question_id": 243,
+      "answer": "In the 1988 Australian Grand Prix, the winner's elapsed time was 1.19% shorter than the last full-distance finisher's time.",
+      "ungrounded": [
+        "1.19%"
+      ],
+      "correct_sql": true
+    },
+    {
+      "question_id": 466,
+      "answer": "The percentage of women among patients born between 1936 and 1956 inclusive who never had a CPK result above 250 is 85.6%.",
+      "ungrounded": [
+        "85.6%"
+      ],
+      "correct_sql": true
+    }
+  ]
+}

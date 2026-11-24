@@ -425,7 +425,9 @@ class Agent:
         """Grounding guard. Returns (rejection message or None, answer to keep)."""
         if not any(e.get("type") == "submit_check" and e.get("query") == sql for e in res.trace):
             db.run_sql(sql)  # make sure the submitted query's own result is part of the evidence
-        report = check_answer(answer, db.observed, context=f"{question}\n{evidence}")
+        report = check_answer(
+            answer, db.observed, f"{question}\n{evidence}", observed_dates=db.observed_dates
+        )
         event: dict[str, Any] = {
             "step": step,
             "type": "grounding",

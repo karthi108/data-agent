@@ -22,7 +22,7 @@ import sqlglot
 from sqlglot import exp
 from sqlglot.errors import SqlglotError
 
-from data_agent.grounding import observed_numbers
+from data_agent.grounding import date_values, observed_numbers
 from data_agent.sql_exec import ExecResult, connect_readonly, execute_readonly
 
 QUERY_TIMEOUT_S = 5.0
@@ -134,6 +134,7 @@ class Database:
         # Every number seen in a successful query result (cells and row counts): the evidence
         # the grounding guard checks answers against. One Database per question.
         self.observed: set[float] = set()
+        self.observed_dates: set[str] = set()
 
     def _conn(self) -> sqlite3.Connection:
         return connect_readonly(self.path)
@@ -313,4 +314,5 @@ class Database:
         rows = res.rows or []
         self.observed |= observed_numbers(v for row in rows for v in row)
         self.observed.add(float(len(rows)))
+        self.observed_dates |= date_values(v for row in rows for v in row if isinstance(v, str))
         return QueryOutcome(sql, res, None, truncated)

@@ -138,6 +138,8 @@ def main() -> None:
         sys.exit("The split file is not committed (or has local changes). Commit it first.")
     split = load_split()
     out_dir = paths.RESULTS_DIR / args.split / args.run_name
+    # Recorded before this run writes anything, so "dirty" means the code was not committed.
+    git_at_start = git_state()
 
     if args.split == "heldout":
         if not args.confirm_frozen_heldout_run:
@@ -146,7 +148,7 @@ def main() -> None:
             sys.exit("Held-out run refused: partial held-out runs are not allowed.")
         if out_dir.exists():
             sys.exit(f"Held-out run refused: {out_dir} exists. The first run is the quoted one.")
-        if git_state()["dirty"]:
+        if git_at_start["dirty"]:
             sys.exit("Held-out run refused: commit everything first so the run maps to a commit.")
     elif out_dir.exists() and args.limit is None:
         sys.exit(f"{out_dir} exists; pick a new --run-name (results are never overwritten).")
@@ -224,7 +226,7 @@ def main() -> None:
         "started_utc": started.isoformat(timespec="seconds"),
         "wall_clock_s": round(wall, 1),
         "workers": args.workers,
-        "git": git_state(),
+        "git": git_at_start,
         "split_ids_sha256": split_ids_sha256(split),
         "metric": "BIRD strict execution accuracy: set(pred_rows) == set(gold_rows)",
         **summarize(records),

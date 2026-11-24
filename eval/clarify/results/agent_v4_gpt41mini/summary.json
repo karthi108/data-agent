@@ -1,0 +1,20 @@
+{
+  "run_name": "agent_v4_gpt41mini",
+  "agent_version": "v4",
+  "model": "gpt-4.1-mini",
+  "started_utc": "2026-11-24T14:11:01+00:00",
+  "set_sha256": "83bf8f811f3b347bf14feadd177c8001817b5062e7beeed5f34cd2fd1a942a09",
+  "ambiguous": {
+    "n": 20,
+    "asked": 2,
+    "asked_pct": 10.0
+  },
+  "clear": {
+    "n": 20,
+    "asked": 0,
+    "answered_without_asking_pct": 100.0
+  },
+  "balanced_accuracy_pct": 55.0,
+  "errors": 0,
+  "cost_usd_total": 0.1834
+}

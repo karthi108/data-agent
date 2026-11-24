@@ -318,3 +318,56 @@ and what changed since the previous run. Failures are explained, not hidden.
 - Cost $1.12 ($0.0075 per question); latency p50 7.2 s, p95 17.6 s; 5.1 steps per question.
 - Decision: this version (v4, unchanged) goes to the held-out run. `git.dirty: true` was the
   untracked video script only.
+
+## 2026-11-24: HELD-OUT RESULTS (one run per system, the quoted numbers)
+
+- Split: the 150 held-out questions frozen in git on 2026-11-24 before any model run
+  (`2062ab7`), never used during development. One run per system; these are final.
+- Runs: [`results/heldout/single_shot_gpt41mini/`](results/heldout/single_shot_gpt41mini/)
+  (code `4365e8d`) and [`results/heldout/agent_v4_gpt41mini/`](results/heldout/agent_v4_gpt41mini/)
+  (code `cdb9bde`, the same agent as the dev check; that commit only added the baseline's
+  results). Both runs started from a clean tree (the runner refuses otherwise); their
+  summaries say `git.dirty: true` because the runner recorded git state at the end, after
+  writing its own results folder. Fixed afterwards: git state is now recorded at the start.
+
+| | Single-shot | Agent v4 |
+|---|---|---|
+| **Execution accuracy** | **43.3%** (65/150) | **47.3%** (71/150) |
+| challenging / moderate / simple | 58/137, 5/10, 2/3 | 62/137, 7/10, 2/3 |
+| Failing queries (SQL errors + timeouts) | 7 (4 + 3) | **0** |
+| Cost per question | $0.0020 | $0.0072 |
+| Latency p50 / p95 | 6.0 s / 18.1 s | 7.0 s / 19.7 s |
+| Model calls per question | 1 | 4.8 |
+
+- **The +4.0-point gap is not statistically significant**: the agent is right where the
+  baseline is wrong on 30 questions, and the reverse on 24 (96 tied); two-sided sign test
+  p = 0.50 ([`heldout_baseline_vs_agent.json`](heldout_baseline_vs_agent.json)). This matches
+  dev, where about 1 question in 6 flips between identical runs. What the agent clearly adds is
+  robustness (no failing queries) and checked answers, not a proven accuracy gain.
+- Remaining errors are logic errors: agent 57 wrong values, 19 wrong row counts, 3 wrong
+  columns; baseline 51 wrong values, 26 wrong row counts, 1 wrong column.
+- **Grounding guard on held-out**: 112 answers passed, 1 passed after the retry, 3 withheld:
+  - q243 (correct SQL): the query returned 1.16, the answer said "1.19% shorter". Real catch.
+  - q466 (correct SQL): the query returned 85.3, the answer said "85.6%". Real catch.
+  - q176: false alarm. The answer restated the question's date "19 September 2014" as
+    "2014-09-19" and the guard read "09" as an ungrounded number. **Fixed after the run**: dates
+    are now compared as whole dates in any common format (3 new tests). Offline replay of the
+    fixed guard on the held-out drafts flags only q243 and q466
+    ([`guard_replay_heldout_agent_v4_fixed_dates.json`](guard_replay_heldout_agent_v4_fixed_dates.json));
+    on dev it still flags the same 3 real problems. The held-out numbers above are as recorded.
+- **Not run on held-out**: the "agent without self-correction" baseline from PLAN.md. On dev the
+  submit check almost never fired (the gain came from the schema and value lookups), so it was
+  not a priority; it can still be run once later.
+- Per PLAN.md, held-out failures are not fixed one by one; the date fix above is a general bug
+  in the guard (it does not touch the SQL, so it cannot change these scores).
+
+## 2026-11-24: clarification test (frozen 20 ambiguous + 20 clear, first run quoted)
+
+- Run: `scripts/run_clarify_eval.py --run-name agent_v4_gpt41mini`
+  ([`clarify/results/agent_v4_gpt41mini/`](clarify/results/agent_v4_gpt41mini/)), cost $0.18.
+- **Ambiguous: asked on 2 of 20 (10%)**: "recently" (A09) and "which Chris" (A15).
+  **Clear: asked on 0 of 20.** Balanced accuracy **55%**, barely above the 50% of never asking.
+- Reading: the agent does not ask needlessly, but on most ambiguous questions (which
+  Schumacher, which Monaco Grand Prix, how many "cards") it picks a reading instead of asking.
+  This is a weak result and it stands as recorded. Improving it needs a new, separately
+  frozen question set, so this one is not re-run after tuning.
