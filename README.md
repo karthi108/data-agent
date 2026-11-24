@@ -27,7 +27,7 @@ uv sync
 uv run python scripts/fetch_bird.py          # ~800 MB: BIRD Mini-Dev questions + SQLite DBs
 uv run python scripts/check_gold.py          # sanity check: every gold query runs
 export OPENAI_API_KEY=...
-uv run python scripts/run_baseline.py --split dev --run-name single_shot_gpt41mini
+uv run python scripts/run_eval.py --system single_shot --split dev --run-name single_shot_gpt41mini
 ```
 
 ## Evaluation rules

@@ -19,6 +19,7 @@ class ExecResult:
     rows: list[Row] | None
     error: str | None
     elapsed_s: float
+    columns: list[str] | None = None
 
     @property
     def ok(self) -> bool:
@@ -53,7 +54,8 @@ def execute_readonly(
         conn.set_progress_handler(lambda: int(time.perf_counter() > deadline), 10_000)
         cur = conn.execute(sql)
         rows = cur.fetchall() if max_rows is None else cur.fetchmany(max_rows)
-        return ExecResult([tuple(r) for r in rows], None, time.perf_counter() - start)
+        columns = [d[0] for d in cur.description] if cur.description else []
+        return ExecResult([tuple(r) for r in rows], None, time.perf_counter() - start, columns)
     except sqlite3.Error as exc:
         elapsed = time.perf_counter() - start
         if time.perf_counter() > deadline:

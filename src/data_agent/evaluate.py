@@ -35,6 +35,8 @@ class Prediction:
     steps: int = 1
     served_model: str = ""
     system_error: str | None = None  # the system itself failed (API error, crash...)
+    stop_reason: str = ""  # agent only: submitted, forced_submit, cost_cap, ...
+    trace: list[dict[str, Any]] | None = None  # agent only: every step, written to traces.jsonl
 
 
 @dataclass
@@ -58,6 +60,8 @@ class Record:
     steps: int
     served_model: str
     raw_response: str
+    stop_reason: str = ""
+    trace: list[dict[str, Any]] | None = None
 
 
 System = Callable[[Question], Prediction]
@@ -102,6 +106,8 @@ def score(question: Question, pred: Prediction, db_root: Path | None = None) -> 
         steps=pred.steps,
         served_model=pred.served_model,
         raw_response=pred.raw_response,
+        stop_reason=pred.stop_reason,
+        trace=pred.trace,
     )
 
 
@@ -144,11 +150,14 @@ def summarize(records: list[Record]) -> dict[str, Any]:
     by_db: dict[str, list[Record]] = defaultdict(list)
     by_diff: dict[str, list[Record]] = defaultdict(list)
     failures: dict[str, int] = defaultdict(int)
+    stops: dict[str, int] = defaultdict(int)
     for r in records:
         by_db[r.db_id].append(r)
         by_diff[r.difficulty].append(r)
         if r.failure:
             failures[r.failure] += 1
+        if r.stop_reason:
+            stops[r.stop_reason] += 1
     latencies = [r.latency_s for r in records if r.failure != "system_error"]
     total_cost = sum(r.cost_usd for r in records)
     return {
@@ -161,6 +170,8 @@ def summarize(records: list[Record]) -> dict[str, Any]:
         "latency_s_p50": round(percentile(latencies, 50), 2) if latencies else None,
         "latency_s_p95": round(percentile(latencies, 95), 2) if latencies else None,
         "avg_steps": round(statistics.fmean(r.steps for r in records), 2) if records else None,
+        "max_steps": max((r.steps for r in records), default=None),
+        "stop_reasons": dict(sorted(stops.items())),
         "input_tokens_total": sum(r.input_tokens for r in records),
         "output_tokens_total": sum(r.output_tokens for r in records),
         "served_models": sorted({r.served_model for r in records if r.served_model}),
@@ -168,6 +179,15 @@ def summarize(records: list[Record]) -> dict[str, Any]:
 
 
 def write_records(records: list[Record], path: Path) -> None:
+    """Write predictions; agent traces go to a sibling traces.jsonl (one line per question)."""
     with path.open("w", encoding="utf-8", newline="\n") as fh:
         for r in records:
-            fh.write(json.dumps(asdict(r), ensure_ascii=False) + "\n")
+            row = asdict(r)
+            row.pop("trace")
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+    traces = [(r.question_id, r.trace) for r in records if r.trace is not None]
+    if traces:
+        with path.with_name("traces.jsonl").open("w", encoding="utf-8", newline="\n") as fh:
+            for qid, trace in traces:
+                line = {"question_id": qid, "trace": trace}
+                fh.write(json.dumps(line, ensure_ascii=False, default=str) + "\n")
