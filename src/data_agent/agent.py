@@ -128,8 +128,11 @@ population for averages and ratios;
 - arithmetic: ratios computed as REAL, percentage scale (0-100 vs 0-1), rounding as requested;
 - text matching: exact values or tokens when the question means them, not a substring LIKE \
 that can match other values (and the reverse when the question says "contains").
-Do not invent requirements the question does not state, and do not suggest style changes. If \
-the query does what the question asks, return verdict "ok" with no issues."""
+Report at most 3 issues, only ones you are confident about. Each issue must quote the exact \
+words of the question or hint that the query does not satisfy, then say what to change. Do not \
+report things you consider acceptable, possible alternative readings, style, or ordering and \
+column names the question does not ask for. If the query does what the question asks, return \
+verdict "ok" with no issues."""
 
 _REVIEW_TOOL = _fn(
     "report_review",
@@ -140,6 +143,7 @@ _REVIEW_TOOL = _fn(
     },
 )
 _REVIEW_ONLY = {"type": "function", "function": {"name": "report_review"}}
+MAX_REVIEW_ISSUES = 3
 
 
 @dataclass
@@ -239,6 +243,15 @@ class Agent:
                     output, ok = self._check_submission(
                         db, sql, step, last, gate, res, question, evidence
                     )
+                    ran_ok = any(
+                        e.get("type") == "submit_check"
+                        and e.get("step") == step
+                        and e.get("query") == sql
+                        and e.get("error") is None
+                        for e in res.trace
+                    )
+                    if ran_ok:
+                        last_ok_sql = sql  # it ran, so it is a valid fallback
                     if ok:
                         res.final_sql, res.answer = sql, answer
                         res.stop_reason = "forced_submit" if last else "submitted"
@@ -246,6 +259,8 @@ class Agent:
                             {"step": step, "type": "submit", "sql": sql, "answer": answer}
                         )
                         accepted = True
+                    elif last:
+                        res.stop_reason = "forced_submit_failed"
                 else:
                     output, event = self._call_tool(db, call.name, args)
                     event["step"] = step
@@ -286,12 +301,16 @@ class Agent:
     ) -> tuple[str, bool]:
         """Self-correction gate. Returns (tool output for the agent, accepted?)."""
         accepted = json.dumps({"status": "accepted"})
-        if not self.config.self_correct or last:
+        if not self.config.self_correct:
             return accepted, True
         outcome = db.run_sql(sql)
         event = sql_event(outcome, kind="submit_check")
         event["step"] = step
         res.trace.append(event)
+        if last:
+            # Forced final submission: no steps left to fix anything. If it does not even run,
+            # the caller falls back to the last query that did run.
+            return accepted, outcome.error is None
         if outcome.error is not None:
             res.corrections += 1
             msg = f"Not accepted: the query failed ({outcome.error}). Fix it and submit again."
@@ -361,6 +380,7 @@ class Agent:
                 verdict = str(args.get("verdict", "ok"))
                 raw = args.get("issues", [])
                 issues = [str(i) for i in raw if str(i).strip()] if isinstance(raw, list) else []
+                issues = issues[:MAX_REVIEW_ISSUES]
         if verdict == "ok":
             issues = []
         res.trace.append({"step": step, "type": "review", "verdict": verdict, "issues": issues})

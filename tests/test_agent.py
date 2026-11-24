@@ -236,3 +236,30 @@ def test_review_can_be_switched_off(db: Database) -> None:
     model = FakeModel([turn(("submit_answer", {"sql": FINAL, "answer": "17"}))])
     res = Agent(model, AgentConfig(review=False)).run(db, "q")
     assert res.reviews == 0 and model.review_calls == []
+
+
+def test_failing_forced_submit_falls_back_to_last_query_that_ran(db: Database) -> None:
+    model = FakeModel(
+        [
+            turn(("run_sql", {"query": FINAL})),
+            turn(("submit_answer", {"sql": "SELECT broken FROM sales", "answer": "?"})),
+        ]
+    )
+    res = Agent(model, AgentConfig(max_steps=2)).run(db, "q")
+    assert res.stop_reason == "forced_submit_failed"
+    assert res.final_sql == FINAL
+    assert res.trace[-1] == {"type": "fallback", "sql": FINAL, "reason": "forced_submit_failed"}
+
+
+def test_reviewer_issues_are_capped(db: Database) -> None:
+    model = FakeModel(
+        [
+            turn(("submit_answer", {"sql": FINAL, "answer": "17"})),
+            turn(("submit_answer", {"sql": FINAL, "answer": "17"})),
+        ],
+        reviews=[review("fix", "a", "b", "c", "d", "e")],
+    )
+    res = Agent(model).run(db, "q")
+    review_event = next(e for e in res.trace if e["type"] == "review")
+    assert review_event["issues"] == ["a", "b", "c"]
+    assert res.final_sql == FINAL  # resubmitted unchanged, accepted
