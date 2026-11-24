@@ -284,3 +284,22 @@ and what changed since the previous run. Failures are explained, not hidden.
   old page (now served with `Cache-Control: no-cache`).
 - The agent's own schema text is unchanged (the catalog uses a separate structured copy), so
   this has no effect on agent behaviour or scores.
+
+## 2026-11-24: deploy preparation (not deployed; no evaluation impact)
+
+- `render.yaml`: one free Render web service (Frankfurt), `uv sync --frozen --no-dev`, uvicorn
+  with proxy headers (`FORWARDED_ALLOW_IPS` as an env var, after a shell-quoted `"*"` argument
+  expanded into file names in a local test), `/healthz` health check, deploys only after CI
+  passes, `OPENAI_API_KEY` declared with `sync: false` (never in git). Validated against
+  Render's JSON schema.
+- `deploy/data/student_club.sqlite` bundled (2.6 MB, CC BY-SA 4.0, NOTICE included; a test
+  checks it is byte-identical to the verified benchmark copy).
+- App: `/healthz`, security headers (Content-Security-Policy limited to this origin and the
+  two pinned CDNs, no framing, nosniff), API docs disabled, and `DATA_AGENT_PAUSED=1` to refuse
+  questions without calling the model.
+- Checked locally with the exact start command, paused, with a placeholder key (no API
+  calls): health check, pause refusal, headers, hidden docs, and the forwarded client address
+  reaching the rate limiter. Chart, fonts and console checked in the browser under the CSP.
+- Honest limit, written in `deploy/DEPLOY.md`: on the free plan the daily budget counter and
+  the rate limit reset when the service restarts, so the hard spending ceiling must be an
+  OpenAI project budget on a dedicated key.

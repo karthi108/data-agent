@@ -1,0 +1,38 @@
+# Render Blueprint for the public demo (one free web service).
+# Schema: https://render.com/schema/render.yaml.json
+# Creating it is a manual step in the Render dashboard; see deploy/DEPLOY.md.
+services:
+  - type: web
+    name: data-agent
+    runtime: python
+    plan: free
+    region: frankfurt
+    branch: main
+    # Deploy only after CI (ruff, mypy, pytest, gitleaks) has passed on the commit.
+    autoDeployTrigger: checksPass
+    buildCommand: pip install --upgrade pip uv && uv sync --frozen --no-dev
+    # --proxy-headers + FORWARDED_ALLOW_IPS below: Render's proxy sets X-Forwarded-For, so the
+    # per-visitor rate limit sees the real client address instead of the proxy's.
+    startCommand: >-
+      uv run --frozen --no-dev uvicorn data_agent.web.app:app
+      --host 0.0.0.0 --port $PORT --proxy-headers
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.8"
+      # Trust X-Forwarded-For from Render's proxy (only the proxy can reach the service).
+      - key: FORWARDED_ALLOW_IPS
+        value: "*"
+      # Paid: every question is billed to this key, capped by the limits below.
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DATA_AGENT_DAILY_BUDGET_USD
+        value: "1.00"
+      - key: DATA_AGENT_HOURLY_LIMIT
+        value: "20"
+      # Set to "1" in the dashboard to stop all model calls (Render restarts the service with
+      # the new value; no code change or commit needed).
+      - key: DATA_AGENT_PAUSED
+        value: "0"
+      - key: DATA_AGENT_DB
+        value: deploy/data/student_club.sqlite

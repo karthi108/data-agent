@@ -4,7 +4,8 @@ Run locally:
   free scripted preview:  DATA_AGENT_DEMO=1 uv run uvicorn data_agent.web.app:app
   real agent (paid):      uv run uvicorn data_agent.web.app:app   (needs OPENAI_API_KEY)
 
-Settings (environment): DATA_AGENT_DB (SQLite file, default BIRD student_club),
+Settings (environment): DATA_AGENT_DB (SQLite file, default deploy/data/student_club.sqlite),
+DATA_AGENT_PAUSED=1 (refuse questions without calling the model),
 DATA_AGENT_DAILY_BUDGET_USD (default 1.00), DATA_AGENT_HOURLY_LIMIT (questions per client
 per hour, default 20), DATA_AGENT_DEMO=1 (scripted model, no API calls).
 """
@@ -25,13 +26,29 @@ from pydantic import BaseModel, Field
 
 from data_agent import paths
 from data_agent.agent import Agent, AgentConfig
-from data_agent.bird import db_path
 from data_agent.llm import ChatModel
 from data_agent.tools import MAX_ROWS_SHOWN, Database, _short
 from data_agent.web.budget import DailyBudget
 from data_agent.web.chart import build_chart
 
 STATIC = Path(__file__).parent / "static"
+BUNDLED_DB = paths.REPO_ROOT / "deploy" / "data" / "student_club.sqlite"
+# The page uses inline script/style and Vega (which compiles chart expressions at runtime), so
+# 'unsafe-inline' and 'unsafe-eval' are needed; everything else is locked to this origin and
+# the two pinned CDNs. Framing by other sites is blocked.
+CSP = "; ".join(
+    [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+        "font-src https://fonts.gstatic.com",
+        "img-src 'self' data: blob:",
+        "connect-src 'self'",
+        "frame-ancestors 'none'",
+        "base-uri 'none'",
+        "form-action 'self'",
+    ]
+)
 
 EXAMPLES: list[dict[str, str]] = [
     {
@@ -98,11 +115,27 @@ def create_app(
     budget: DailyBudget,
     demo: bool = False,
     hourly_limit: int = 20,
+    paused: Callable[[], bool] = lambda: False,
 ) -> FastAPI:
-    app = FastAPI(title="Data Agent", docs_url=None, redoc_url=None)
+    app = FastAPI(title="Data Agent", docs_url=None, redoc_url=None, openapi_url=None)
     config = AgentConfig(clarify="ask")
     limiter = RateLimiter(hourly_limit)
     model = model_factory()
+
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next: Any) -> Any:
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = CSP
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
+    @app.get("/healthz")
+    def healthz() -> dict[str, str]:
+        # For the host's health check: no model call, just "the app and its database are here".
+        if not db_file.is_file():
+            raise HTTPException(503, "database missing")
+        return {"status": "ok"}
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> HTMLResponse:
@@ -118,6 +151,7 @@ def create_app(
             "tables": Database(db_file).tables(),
             "budget_left_usd": round(budget.remaining(), 4),
             "max_cost_per_question_usd": config.cost_cap_usd,
+            "paused": paused(),
         }
 
     @app.get("/api/schema")
@@ -129,6 +163,11 @@ def create_app(
         client = request.client.host if request.client else "unknown"
         if not limiter.allow(client):
             raise HTTPException(429, "Too many questions from you this hour. Try again later.")
+        if paused():
+            return {
+                "status": "paused",
+                "message": "Questions are paused on this demo right now. Please try again later.",
+            }
         # Worst case for one question is the per-question cap (plus a small margin for the
         # reviewer/guard turns that can land just after the cap check).
         if not demo and not budget.can_spend(config.cost_cap_usd * 1.2):
@@ -188,7 +227,7 @@ def create_app(
 
 def app_from_env() -> FastAPI:
     demo = os.environ.get("DATA_AGENT_DEMO") == "1"
-    db_file = Path(os.environ.get("DATA_AGENT_DB", str(db_path("student_club"))))
+    db_file = Path(os.environ.get("DATA_AGENT_DB", str(BUNDLED_DB)))
     if not db_file.is_file():
         raise RuntimeError(f"database not found: {db_file} (run scripts/fetch_bird.py)")
     budget = DailyBudget(
@@ -207,7 +246,15 @@ def app_from_env() -> FastAPI:
         if not os.environ.get("OPENAI_API_KEY"):
             raise RuntimeError("OPENAI_API_KEY is not set (or use DATA_AGENT_DEMO=1).")
         factory = OpenAIChat
-    return create_app(factory, db_file, budget, demo=demo, hourly_limit=limit)
+    return create_app(
+        factory,
+        db_file,
+        budget,
+        demo=demo,
+        hourly_limit=limit,
+        # Set DATA_AGENT_PAUSED=1 in the host dashboard to refuse questions without model calls.
+        paused=lambda: os.environ.get("DATA_AGENT_PAUSED") == "1",
+    )
 
 
 def __getattr__(name: str) -> Any:

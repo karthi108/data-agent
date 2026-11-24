@@ -61,8 +61,13 @@ uv run python scripts/serve.py --demo   # free preview: scripted answers to the 
 uv run python scripts/serve.py          # real agent (paid, needs OPENAI_API_KEY)
 ```
 
-Default database: BIRD `student_club` (budgets, expenses, events, members; 2.6 MB). Set
-`DATA_AGENT_DB` to use another SQLite file.
+Default database: BIRD `student_club` (budgets, expenses, events, members; 2.6 MB), bundled in
+[`deploy/data/`](deploy/data/) with its CC BY-SA notice. Set `DATA_AGENT_DB` to use another
+SQLite file.
+
+**Deploy:** [`render.yaml`](render.yaml) describes one free Render web service (Frankfurt,
+deploys only after CI passes, `/healthz` health check). Steps, spending controls and the
+free-plan limits are in [`deploy/DEPLOY.md`](deploy/DEPLOY.md). Not deployed yet.
 
 ## Evaluation rules
 
