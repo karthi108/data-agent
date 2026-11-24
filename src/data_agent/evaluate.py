@@ -36,6 +36,7 @@ class Prediction:
     served_model: str = ""
     system_error: str | None = None  # the system itself failed (API error, crash...)
     stop_reason: str = ""  # agent only: submitted, forced_submit, cost_cap, ...
+    guard: str = ""  # agent only: grounding guard outcome (pass, blocked, ...)
     trace: list[dict[str, Any]] | None = None  # agent only: every step, written to traces.jsonl
 
 
@@ -61,6 +62,7 @@ class Record:
     served_model: str
     raw_response: str
     stop_reason: str = ""
+    guard: str = ""
     trace: list[dict[str, Any]] | None = None
 
 
@@ -107,6 +109,7 @@ def score(question: Question, pred: Prediction, db_root: Path | None = None) -> 
         served_model=pred.served_model,
         raw_response=pred.raw_response,
         stop_reason=pred.stop_reason,
+        guard=pred.guard,
         trace=pred.trace,
     )
 
@@ -151,6 +154,7 @@ def summarize(records: list[Record]) -> dict[str, Any]:
     by_diff: dict[str, list[Record]] = defaultdict(list)
     failures: dict[str, int] = defaultdict(int)
     stops: dict[str, int] = defaultdict(int)
+    guards: dict[str, int] = defaultdict(int)
     for r in records:
         by_db[r.db_id].append(r)
         by_diff[r.difficulty].append(r)
@@ -158,6 +162,8 @@ def summarize(records: list[Record]) -> dict[str, Any]:
             failures[r.failure] += 1
         if r.stop_reason:
             stops[r.stop_reason] += 1
+        if r.guard:
+            guards[r.guard] += 1
     latencies = [r.latency_s for r in records if r.failure != "system_error"]
     total_cost = sum(r.cost_usd for r in records)
     return {
@@ -172,6 +178,7 @@ def summarize(records: list[Record]) -> dict[str, Any]:
         "avg_steps": round(statistics.fmean(r.steps for r in records), 2) if records else None,
         "max_steps": max((r.steps for r in records), default=None),
         "stop_reasons": dict(sorted(stops.items())),
+        "grounding_guard": dict(sorted(guards.items())),
         "input_tokens_total": sum(r.input_tokens for r in records),
         "output_tokens_total": sum(r.output_tokens for r in records),
         "served_models": sorted({r.served_model for r in records if r.served_model}),

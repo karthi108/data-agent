@@ -1,0 +1,34 @@
+{
+  "run": "eval/results/dev/agent_v2_gpt41mini",
+  "verdicts": {
+    "pass": 121,
+    "no_numbers": 26,
+    "flagged": 3
+  },
+  "flagged": [
+    {
+      "question_id": 188,
+      "answer": "As of 1 January 2015, there were 10982 players who preferred their left foot and had an attacking work rate below high (low or medium).",
+      "ungrounded": [
+        "10982"
+      ],
+      "correct_sql": false
+    },
+    {
+      "question_id": 302,
+      "answer": "The Women's Soccer event had 17 attendees, the average attendance for fall 2019 events was 18.1, so the verdict is 'fewer'.",
+      "ungrounded": [
+        "18.1"
+      ],
+      "correct_sql": true
+    },
+    {
+      "question_id": 404,
+      "answer": "Among the women in the thrombosis cohort with an available anti-ribonuclear protein test result, 28.57% had a clearly elevated result.",
+      "ungrounded": [
+        "28.57%"
+      ],
+      "correct_sql": false
+    }
+  ]
+}

@@ -90,6 +90,7 @@ def agent_system(agent: Agent) -> System:
             served_model=res.served_model,
             system_error=error,
             stop_reason=res.stop_reason,
+            guard=res.guard,
             trace=res.trace,
         )
 
@@ -120,6 +121,7 @@ def main() -> None:
     p.add_argument("--no-plan", action="store_true", help="agent: force tool use on step 1")
     p.add_argument("--no-self-correct", action="store_true", help="agent: accept any submission")
     p.add_argument("--review", action="store_true", help="agent: reviewer on submission (v3)")
+    p.add_argument("--no-grounding", action="store_true", help="agent: no grounding guard")
     args = p.parse_args()
 
     load_dotenv(paths.REPO_ROOT / ".env")
@@ -163,6 +165,7 @@ def main() -> None:
             plan_turn=not args.no_plan,
             self_correct=not args.no_self_correct,
             review=args.review,
+            grounding=not args.no_grounding,
         )
         system = agent_system(Agent(OpenAIChat(model=args.model), agent_config))
         config = {
@@ -221,7 +224,7 @@ def main() -> None:
     (out_dir / "summary.json").write_text(
         json.dumps(summary, indent=2) + "\n", encoding="utf-8", newline="\n"
     )
-    keys = ("overall", "failures", "stop_reasons", "cost_usd_total", "avg_steps")
+    keys = ("overall", "failures", "stop_reasons", "grounding_guard", "cost_usd_total", "avg_steps")
     print(json.dumps({k: summary[k] for k in keys}, indent=2))
     print(f"results: {out_dir}")
 

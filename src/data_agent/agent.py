@@ -15,6 +15,9 @@ do exactly what the question says):
   its result, and lists concrete mismatches against a fixed checklist (columns, row shape, ties,
   stated conditions, counting grain, ratios and rounding, exact vs substring matching). If it
   finds any, the agent gets them back once and fixes or deliberately resubmits.
+v4: reviewer off by default (net zero on dev); grounding guard on: every number in the final
+answer must appear in a query result the agent ran (one retry, then "could not answer
+reliably"). The guard checks the answer text only, so it does not change the SQL that is scored.
 Each change can be switched off in ``AgentConfig`` so its effect can be measured on its own.
 Still to come: clarifying questions and the grounding guard.
 """
@@ -26,10 +29,15 @@ import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from data_agent.grounding import check_answer
 from data_agent.llm import ChatModel, ChatTurn
 from data_agent.tools import Database, QueryOutcome
 
-VERSION = "v3"
+VERSION = "v4"
+UNRELIABLE_ANSWER = (
+    "I could not answer this reliably: the numbers in my draft answer did not match "
+    "the query results."
+)
 
 
 @dataclass(frozen=True)
@@ -43,6 +51,11 @@ class AgentConfig:
     # v3 reviewer: measured on dev as net zero (15 fixed, 15 broken over 2 runs) for +30% cost,
     # so it is off by default. Kept for future measurement (run_eval.py --review).
     review: bool = False
+    # Grounding guard: every number in the answer must appear in a query result the agent ran.
+    # One retry, then the answer text is replaced by UNRELIABLE_ANSWER. The SQL is kept, so
+    # benchmark scores (which use the SQL) are unaffected; the guard protects the user-facing
+    # answer.
+    grounding: bool = True
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -161,6 +174,8 @@ class AgentResult:
     served_model: str = ""
     corrections: int = 0  # submissions sent back by the self-correction check
     reviews: int = 0  # reviewer calls (not counted as steps; their cost is counted)
+    # pass | pass_after_retry | blocked | no_numbers | off | no_answer
+    guard: str = "no_answer"
     trace: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -205,7 +220,7 @@ class Agent:
         res = AgentResult(final_sql="", answer="", stop_reason="", steps=0)
         res.trace.append({"type": "question", "question": question, "evidence": evidence})
         last_ok_sql = ""
-        gate = {"warned_empty": False, "reviewed": False}
+        gate = {"warned_empty": False, "reviewed": False, "ground_retry": False}
 
         for step in range(1, cfg.max_steps + 1):
             if res.cost_usd >= cfg.cost_cap_usd:
@@ -254,6 +269,14 @@ class Agent:
                     )
                     if ran_ok:
                         last_ok_sql = sql  # it ran, so it is a valid fallback
+                    if ok and cfg.grounding:
+                        rejection, answer = self._ground(
+                            db, sql, answer, question, evidence, step, last, gate, res
+                        )
+                        if rejection is not None:
+                            output, ok = rejection, False
+                    elif ok:
+                        res.guard = "off"
                     if ok:
                         res.final_sql, res.answer = sql, answer
                         res.stop_reason = "forced_submit" if last else "submitted"
@@ -289,6 +312,54 @@ class Agent:
             res.trace.append({"type": "fallback", "sql": last_ok_sql, "reason": res.stop_reason})
         res.latency_s = time.perf_counter() - start
         return res
+
+    def _ground(
+        self,
+        db: Database,
+        sql: str,
+        answer: str,
+        question: str,
+        evidence: str,
+        step: int,
+        last: bool,
+        gate: dict[str, bool],
+        res: AgentResult,
+    ) -> tuple[str | None, str]:
+        """Grounding guard. Returns (rejection message or None, answer to keep)."""
+        if not any(e.get("type") == "submit_check" and e.get("query") == sql for e in res.trace):
+            db.run_sql(sql)  # make sure the submitted query's own result is part of the evidence
+        report = check_answer(answer, db.observed, context=f"{question}\n{evidence}")
+        event: dict[str, Any] = {
+            "step": step,
+            "type": "grounding",
+            "checked": report.checked,
+            "ungrounded": report.ungrounded,
+        }
+        if report.ok:
+            retried = gate["ground_retry"]
+            res.guard = (
+                "no_numbers" if not report.checked else "pass_after_retry" if retried else "pass"
+            )
+            event["verdict"] = res.guard
+            res.trace.append(event)
+            return None, answer
+        if not gate["ground_retry"] and not last:
+            gate["ground_retry"] = True
+            res.corrections += 1
+            event["verdict"] = "retry"
+            res.trace.append(event)
+            msg = (
+                "Not accepted: your answer mentions numbers that do not appear in any query "
+                f"result you ran: {', '.join(report.ungrounded)}. Rewrite the answer using only "
+                "numbers from query results (run a query that computes them if needed), then "
+                "submit again."
+            )
+            return json.dumps({"status": "rejected", "reason": msg}), answer
+        res.guard = "blocked"
+        event["verdict"] = "blocked"
+        event["original_answer"] = answer
+        res.trace.append(event)
+        return None, UNRELIABLE_ANSWER
 
     def _check_submission(
         self,

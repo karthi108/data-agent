@@ -68,3 +68,14 @@ def test_run_counts_crashing_system_as_wrong(db_root: Path) -> None:
     summary = summarize(records)
     assert summary["overall"] == {"n": 2, "correct": 1, "ex": 50.0}
     assert summary["failures"] == {"system_error": 1}
+
+
+def test_summary_counts_guard_outcomes(db_root: Path) -> None:
+    def system(q: Question) -> Prediction:
+        guard = "blocked" if q.question_id == 7 else "pass"
+        return Prediction(sql=q.gold_sql, guard=guard, stop_reason="submitted")
+
+    q8 = Question(8, "shop", "?", "", "SELECT COUNT(*) FROM sales", "simple")
+    summary = summarize(run(system, [Q, q8], workers=1, db_root=db_root))
+    assert summary["grounding_guard"] == {"blocked": 1, "pass": 1}
+    assert summary["stop_reasons"] == {"submitted": 2}

@@ -24,7 +24,10 @@ Every number here comes from a script in this repo; raw per-question results are
 Dev numbers are what we improve against, so they are not the quoted result. Run twice each, the
 baseline scored 44.0% / 44.7% and agent v2 48.0% / 47.3%; about 1 question in 6 flips between
 identical runs, and the agent's +3.3-point average lead is not significant (sign test p = 0.90).
-A reviewer step (v3) fixed 15 answers and broke 15, so it is off by default. *v3 latency is
+A reviewer step (v3) fixed 15 answers and broke 15, so it is off by default. The grounding
+guard (every number in an answer must come from a query result), replayed offline on agent v2's
+150 dev answers, flagged 3, all real: an invented count, a contradicted result, an unqueried
+percentage. *v3 latency is
 run 2; run 1 hit an API stall. Held-out numbers:
 none yet. The held-out set is run once per system, after development is done.
 

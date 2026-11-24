@@ -22,6 +22,7 @@ import sqlglot
 from sqlglot import exp
 from sqlglot.errors import SqlglotError
 
+from data_agent.grounding import observed_numbers
 from data_agent.sql_exec import ExecResult, connect_readonly, execute_readonly
 
 QUERY_TIMEOUT_S = 5.0
@@ -129,6 +130,9 @@ class Database:
         self.path = path
         self.query_timeout_s = query_timeout_s
         self._tables: list[str] | None = None
+        # Every number seen in a successful query result (cells and row counts): the evidence
+        # the grounding guard checks answers against. One Database per question.
+        self.observed: set[float] = set()
 
     def _conn(self) -> sqlite3.Connection:
         return connect_readonly(self.path)
@@ -270,4 +274,7 @@ class Database:
         truncated = len(res.rows) > MAX_ROWS
         if truncated:
             res = ExecResult(res.rows[:MAX_ROWS], None, res.elapsed_s, res.columns)
+        rows = res.rows or []
+        self.observed |= observed_numbers(v for row in rows for v in row)
+        self.observed.add(float(len(rows)))
         return QueryOutcome(sql, res, None, truncated)

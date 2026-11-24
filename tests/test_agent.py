@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from data_agent.agent import Agent, AgentConfig
+from data_agent.agent import UNRELIABLE_ANSWER, Agent, AgentConfig
 from data_agent.llm import ChatTurn, ToolCall, assistant_message
 from data_agent.tools import Database
 
@@ -86,7 +86,7 @@ def test_full_loop_with_error_and_fix(db: Database) -> None:
     types = [e["type"] for e in res.trace]
     assert types == [
         "question", "plan", "list_tables", "sql", "describe_table", "sql",
-        "submit_check", "submit",
+        "submit_check", "grounding", "submit",
     ]  # fmt: skip
     sql_events = [e for e in res.trace if e["type"] == "sql"]
     assert "no such column" in sql_events[0]["error"]
@@ -263,3 +263,67 @@ def test_reviewer_issues_are_capped(db: Database) -> None:
     review_event = next(e for e in res.trace if e["type"] == "review")
     assert review_event["issues"] == ["a", "b", "c"]
     assert res.final_sql == FINAL  # resubmitted unchanged, accepted
+
+
+# --- grounding guard -------------------------------------------------------------------------
+
+
+def submit(answer: str, sql: str = FINAL) -> ChatTurn:
+    return turn(("submit_answer", {"sql": sql, "answer": answer}))
+
+
+def test_grounded_answer_passes(db: Database) -> None:
+    res = Agent(FakeModel([submit("Sales in N total 17.")])).run(db, "Total sales in N?")
+    assert res.guard == "pass"
+    assert res.answer == "Sales in N total 17."
+
+
+def test_invented_number_gets_one_retry_then_passes(db: Database) -> None:
+    model = FakeModel([submit("Sales in N total 18, up 5%."), submit("Sales in N total 17.")])
+    res = Agent(model).run(db, "Total sales in N?")
+    assert res.guard == "pass_after_retry"
+    assert res.answer == "Sales in N total 17."
+    sent_back = json.loads(model.calls[1]["messages"][-1]["content"])
+    assert sent_back["status"] == "rejected" and "18, 5%" in sent_back["reason"]
+    assert [e["verdict"] for e in res.trace if e["type"] == "grounding"] == [
+        "retry",
+        "pass_after_retry",
+    ]
+
+
+def test_second_ungrounded_answer_is_blocked_but_sql_kept(db: Database) -> None:
+    model = FakeModel([submit("Total is 18."), submit("Total is 19.")])
+    res = Agent(model).run(db, "Total sales in N?")
+    assert res.guard == "blocked"
+    assert res.answer == UNRELIABLE_ANSWER
+    assert res.final_sql == FINAL  # the query itself is kept (and scored)
+    blocked = [e for e in res.trace if e["type"] == "grounding"][-1]
+    assert blocked["original_answer"] == "Total is 19." and blocked["ungrounded"] == ["19"]
+
+
+def test_last_step_ungrounded_answer_is_blocked_without_retry(db: Database) -> None:
+    res = Agent(FakeModel([submit("Total is 99.")]), AgentConfig(max_steps=1)).run(db, "q")
+    assert res.guard == "blocked" and res.answer == UNRELIABLE_ANSWER
+
+
+def test_numbers_from_question_and_row_counts_are_allowed(db: Database) -> None:
+    sql = "SELECT region FROM sales WHERE amount > 6"
+    model = FakeModel([submit("2 sales are above 6: both in region N.", sql)])
+    res = Agent(model).run(db, "Which sales are above 6?")
+    assert res.guard == "pass"  # 6 comes from the question, 2 is the row count
+
+
+def test_answer_without_numbers(db: Database) -> None:
+    res = Agent(FakeModel([submit("Region N sells the most.")])).run(db, "q")
+    assert res.guard == "no_numbers"
+
+
+def test_guard_runs_the_query_itself_when_self_correction_is_off(db: Database) -> None:
+    cfg = AgentConfig(self_correct=False)
+    res = Agent(FakeModel([submit("Sales in N total 17.")]), cfg).run(db, "q")
+    assert res.guard == "pass"
+
+
+def test_guard_can_be_switched_off(db: Database) -> None:
+    res = Agent(FakeModel([submit("Total is 99.")]), AgentConfig(grounding=False)).run(db, "q")
+    assert res.guard == "off" and res.answer == "Total is 99."

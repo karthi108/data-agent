@@ -189,3 +189,32 @@ and what changed since the previous run. Failures are explained, not hidden.
   plus the forced-submit fallback.
 - `git.dirty: true` in both summaries: the other run's results folder and the smoke folders
   were not committed yet; the agent code was the committed `bab8818`.
+
+## 2026-11-24: grounding guard (agent v4), checked offline on agent v2's answers (no model calls)
+
+- Change (`src/data_agent/grounding.py`, wired into `agent.py`, `AgentConfig.grounding = True`):
+  every number in the agent's final answer must match a number seen in a query result it ran
+  (numeric cells, numbers inside text cells such as dates, row counts). Tolerances: the
+  rounding the answer shows (57.14 matches 57.142857) and percentage scale (57.14% matches
+  0.5714). Numbers that appear in the question or hint need no grounding. If a number is not
+  grounded the agent gets one retry; after that, or on the last step, the answer text is
+  replaced by "I could not answer this reliably...". The SQL is kept, so EX scores (which use
+  the SQL) are not affected; the guard protects the answer the user reads. Outcomes are
+  recorded per question (`guard` in predictions, `grounding_guard` in summaries).
+- Unit tests: 14 for the number matching, 8 for the agent paths (pass, retry then pass,
+  blocked after retry, blocked on last step, numbers from the question, row counts, no
+  numbers, guard on with self-correction off).
+- **Offline replay on agent v2's 150 dev answers** (`scripts/guard_replay.py`: re-runs every
+  query from the traces locally to rebuild the evidence, then checks the saved answer text; no
+  API calls; [`guard_replay_agent_v2.json`](guard_replay_agent_v2.json)): 121 pass,
+  26 have no numbers, **3 flagged, and all 3 are real problems**:
+  - q188: every counting query timed out, yet the answer claims "10982 players" (invented);
+  - q302: the SQL is right and returns an average of 16.1 and the verdict "more", but the
+    answer says 18.1 and "fewer" (the text contradicts the agent's own correct result);
+  - q404: the final query returns NULL, yet the answer says "28.57%" (2/7 computed in the
+    model's head, never queried).
+  No false alarms in this sample. Limits: the guard only checks numbers, not words (q302's
+  "fewer" would not be caught alone), and a number that is right by coincidence (another cell
+  with the same value) passes. False negatives are not measured.
+- Not yet measured live: how the retry changes the agent's behaviour in a real run. That needs
+  a paid run and will be done only with approval.
