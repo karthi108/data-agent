@@ -15,11 +15,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import threading
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 
 from data_agent import paths
 from data_agent.baseline import extract_sql
@@ -61,6 +63,16 @@ def make_system(client: LLMClient, prompts: dict[int, str]) -> System:
     return system
 
 
+def load_dotenv(path: Path) -> None:
+    """Minimal .env reader: KEY=VALUE lines; never overrides variables already set."""
+    if not path.is_file():
+        return
+    for line in path.read_text(encoding="utf-8").splitlines():
+        key, sep, value = line.strip().partition("=")
+        if sep and key and not key.startswith("#"):
+            os.environ.setdefault(key.strip(), value.strip().strip("\"'"))
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     p.add_argument("--split", choices=["dev", "heldout"], required=True)
@@ -71,6 +83,9 @@ def main() -> None:
     p.add_argument("--confirm-frozen-heldout-run", action="store_true")
     args = p.parse_args()
 
+    load_dotenv(paths.REPO_ROOT / ".env")
+    if not os.environ.get("OPENAI_API_KEY"):
+        sys.exit("OPENAI_API_KEY is not set (shell variable or .env file in the repo root).")
     if not split_is_committed():
         sys.exit(
             "The split file is not committed (or has local changes). Commit it before any run."
