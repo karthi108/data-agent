@@ -28,12 +28,18 @@ def turn(*calls: tuple[str, dict[str, Any]], content: str = "", cost_tokens: int
     )
 
 
+def review(verdict: str, *issues: str) -> ChatTurn:
+    return turn(("report_review", {"verdict": verdict, "issues": list(issues)}))
+
+
 class FakeModel:
     model = "gpt-4.1-mini"
 
-    def __init__(self, turns: list[ChatTurn]) -> None:
+    def __init__(self, turns: list[ChatTurn], reviews: list[ChatTurn] | None = None) -> None:
         self.turns = turns
+        self.reviews = reviews or []
         self.calls: list[dict[str, Any]] = []
+        self.review_calls: list[dict[str, Any]] = []
 
     def chat(
         self,
@@ -41,6 +47,10 @@ class FakeModel:
         tools: list[dict[str, Any]],
         tool_choice: str | dict[str, Any] = "auto",
     ) -> ChatTurn:
+        if tools and tools[0]["function"]["name"] == "report_review":
+            self.review_calls.append({"messages": [dict(m) for m in messages]})
+            n = len(self.review_calls) - 1
+            return self.reviews[n] if n < len(self.reviews) else review("ok")
         self.calls.append({"messages": [dict(m) for m in messages], "tool_choice": tool_choice})
         return self.turns[len(self.calls) - 1]
 
@@ -75,7 +85,8 @@ def test_full_loop_with_error_and_fix(db: Database) -> None:
     assert res.steps == 5
     types = [e["type"] for e in res.trace]
     assert types == [
-        "question", "plan", "list_tables", "sql", "describe_table", "sql", "submit_check", "submit",
+        "question", "plan", "list_tables", "sql", "describe_table", "sql",
+        "submit_check", "review", "submit",
     ]  # fmt: skip
     sql_events = [e for e in res.trace if e["type"] == "sql"]
     assert "no such column" in sql_events[0]["error"]
@@ -192,3 +203,36 @@ def test_column_values_tool(db: Database) -> None:
     out = json.loads(model.calls[1]["messages"][-1]["content"])
     assert out["distinct_values"] == 2
     assert out["top_values"][0] == {"value": "N", "rows": 2}
+
+
+def test_reviewer_issue_is_sent_back_once_then_fixed(db: Database) -> None:
+    extra = "SELECT region, SUM(amount) FROM sales WHERE region = 'N'"
+    model = FakeModel(
+        [
+            turn(("submit_answer", {"sql": extra, "answer": "17"})),
+            turn(("submit_answer", {"sql": FINAL, "answer": "17"})),
+        ],
+        reviews=[review("fix", "The question asks only for the total; drop the region column.")],
+    )
+    res = Agent(model).run(db, "Total sales in N?")
+    assert res.final_sql == FINAL
+    assert res.corrections == 1
+    assert res.reviews == 1  # reviewed once only; the fixed query is accepted without review
+    sent_back = json.loads(model.calls[1]["messages"][-1]["content"])
+    assert sent_back["status"] == "rejected" and "drop the region column" in sent_back["reason"]
+    reviewer_input = model.review_calls[0]["messages"][1]["content"]
+    assert "Submitted SQL:" in reviewer_input and '"row_count": 1' in reviewer_input
+    assert [e["verdict"] for e in res.trace if e["type"] == "review"] == ["fix"]
+    assert res.steps == 2  # reviewer calls are not agent steps
+
+
+def test_reviewer_ok_accepts_and_fix_verdict_needs_issues(db: Database) -> None:
+    model = FakeModel([turn(("submit_answer", {"sql": FINAL, "answer": "17"}))])
+    res = Agent(model).run(db, "q")
+    assert res.stop_reason == "submitted" and res.reviews == 1 and res.corrections == 0
+
+
+def test_review_can_be_switched_off(db: Database) -> None:
+    model = FakeModel([turn(("submit_answer", {"sql": FINAL, "answer": "17"}))])
+    res = Agent(model, AgentConfig(review=False)).run(db, "q")
+    assert res.reviews == 0 and model.review_calls == []

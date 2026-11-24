@@ -9,6 +9,12 @@ v2 (dev iteration after v1 scored below the single-shot baseline):
 - self-correction on submit: the submitted query is executed; if it fails, or returns no rows
   (asked once), the agent is told and must fix it before the answer is accepted;
 - a reminder when two steps are left.
+v3 (dev iteration after measuring noise; v2's remaining errors were mostly queries that do not
+do exactly what the question says):
+- a reviewer (one separate model call per question) reads the question, the submitted SQL and
+  its result, and lists concrete mismatches against a fixed checklist (columns, row shape, ties,
+  stated conditions, counting grain, ratios and rounding, exact vs substring matching). If it
+  finds any, the agent gets them back once and fixes or deliberately resubmits.
 Each change can be switched off in ``AgentConfig`` so its effect can be measured on its own.
 Still to come: clarifying questions and the grounding guard.
 """
@@ -23,7 +29,7 @@ from typing import Any
 from data_agent.llm import ChatModel, ChatTurn
 from data_agent.tools import Database, QueryOutcome
 
-VERSION = "v2"
+VERSION = "v3"
 
 
 @dataclass(frozen=True)
@@ -34,6 +40,7 @@ class AgentConfig:
     plan_turn: bool = True
     self_correct: bool = True
     step_reminder: bool = True
+    review: bool = True  # v3: reviewer checks the submitted query against the question once
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -106,6 +113,34 @@ TOOLS: list[dict[str, Any]] = [
 ]
 _SUBMIT_ONLY = {"type": "function", "function": {"name": "submit_answer"}}
 
+REVIEW_PROMPT = """\
+You review a SQL answer before it is shown to the person who asked. Compare the question (and \
+hint) with the submitted SQL and its result. Report only concrete problems where the query does \
+not do what the question explicitly asks. Check:
+- columns: exactly the fields asked for, in the order asked; no helper columns (for example a \
+column used only for sorting or grouping) and none missing;
+- row shape: a single value vs a list; one row per what the question says; "list all" ties; \
+requested ordering and limits;
+- conditions: every condition stated in the question or hint is applied as stated, and no \
+filter was added that the question does not ask for;
+- counting grain: entities vs rows (DISTINCT), duplicates created by joins, the right \
+population for averages and ratios;
+- arithmetic: ratios computed as REAL, percentage scale (0-100 vs 0-1), rounding as requested;
+- text matching: exact values or tokens when the question means them, not a substring LIKE \
+that can match other values (and the reverse when the question says "contains").
+Do not invent requirements the question does not state, and do not suggest style changes. If \
+the query does what the question asks, return verdict "ok" with no issues."""
+
+_REVIEW_TOOL = _fn(
+    "report_review",
+    "Report the review: verdict ok (no real problem) or fix, with the concrete issues.",
+    {
+        "verdict": {"type": "string", "enum": ["ok", "fix"]},
+        "issues": {"type": "array", "items": {"type": "string"}},
+    },
+)
+_REVIEW_ONLY = {"type": "function", "function": {"name": "report_review"}}
+
 
 @dataclass
 class AgentResult:
@@ -119,6 +154,7 @@ class AgentResult:
     latency_s: float = 0.0
     served_model: str = ""
     corrections: int = 0  # submissions sent back by the self-correction check
+    reviews: int = 0  # reviewer calls (not counted as steps; their cost is counted)
     trace: list[dict[str, Any]] = field(default_factory=list)
 
 
@@ -163,7 +199,7 @@ class Agent:
         res = AgentResult(final_sql="", answer="", stop_reason="", steps=0)
         res.trace.append({"type": "question", "question": question, "evidence": evidence})
         last_ok_sql = ""
-        warned_empty = False
+        gate = {"warned_empty": False, "reviewed": False}
 
         for step in range(1, cfg.max_steps + 1):
             if res.cost_usd >= cfg.cost_cap_usd:
@@ -200,8 +236,8 @@ class Agent:
                 elif call.name == "submit_answer":
                     sql = str(args.get("sql", "")).strip()
                     answer = str(args.get("answer", ""))
-                    output, ok, warned_empty = self._check_submission(
-                        db, sql, step, last, warned_empty, res
+                    output, ok = self._check_submission(
+                        db, sql, step, last, gate, res, question, evidence
                     )
                     if ok:
                         res.final_sql, res.answer = sql, answer
@@ -243,12 +279,15 @@ class Agent:
         sql: str,
         step: int,
         last: bool,
-        warned_empty: bool,
+        gate: dict[str, bool],
         res: AgentResult,
-    ) -> tuple[str, bool, bool]:
-        """Self-correction gate. Returns (tool output, accepted?, warned_empty)."""
+        question: str,
+        evidence: str,
+    ) -> tuple[str, bool]:
+        """Self-correction gate. Returns (tool output for the agent, accepted?)."""
+        accepted = json.dumps({"status": "accepted"})
         if not self.config.self_correct or last:
-            return json.dumps({"status": "accepted"}), True, warned_empty
+            return accepted, True
         outcome = db.run_sql(sql)
         event = sql_event(outcome, kind="submit_check")
         event["step"] = step
@@ -256,16 +295,76 @@ class Agent:
         if outcome.error is not None:
             res.corrections += 1
             msg = f"Not accepted: the query failed ({outcome.error}). Fix it and submit again."
-            return json.dumps({"status": "rejected", "reason": msg}), False, warned_empty
+            return json.dumps({"status": "rejected", "reason": msg}), False
         rows = outcome.result.rows if outcome.result else None
-        if not rows and not warned_empty:
+        if not rows and not gate["warned_empty"]:
+            gate["warned_empty"] = True
             res.corrections += 1
             msg = (
                 "Not accepted yet: the query returns 0 rows. Check the filter values with "
                 "column_values. If 0 rows really is the answer, submit the same query again."
             )
-            return json.dumps({"status": "rejected", "reason": msg}), False, True
-        return json.dumps({"status": "accepted"}), True, warned_empty
+            return json.dumps({"status": "rejected", "reason": msg}), False
+        if self.config.review and not gate["reviewed"]:
+            gate["reviewed"] = True
+            issues = self._review(question, evidence, outcome, step, res)
+            if issues:
+                res.corrections += 1
+                msg = (
+                    "Not accepted yet. A reviewer compared your query with the question and "
+                    "found possible problems:\n- " + "\n- ".join(issues) + "\nFix the real "
+                    "ones and submit again. If you are sure the query is right, submit it again "
+                    "unchanged."
+                )
+                return json.dumps({"status": "rejected", "reason": msg}), False
+        return accepted, True
+
+    def _review(
+        self,
+        question: str,
+        evidence: str,
+        outcome: QueryOutcome,
+        step: int,
+        res: AgentResult,
+    ) -> list[str]:
+        """One reviewer call. Returns the concrete issues it found (empty list = looks right)."""
+        r = outcome.result
+        rows = (r.rows or []) if r is not None else []
+        shown = {
+            "columns": r.columns if r is not None else None,
+            "row_count": f"{len(rows)}+ (capped)" if outcome.truncated else len(rows),
+            "first_rows": [[str(v)[:60] for v in row] for row in rows[:10]],
+        }
+        content = (
+            f"{user_message(question, evidence)}\n\nSubmitted SQL:\n{outcome.sql}\n\n"
+            f"Result:\n{json.dumps(shown, ensure_ascii=False)}"
+        )
+        messages = [
+            {"role": "system", "content": REVIEW_PROMPT},
+            {"role": "user", "content": content},
+        ]
+        try:
+            turn = self.model.chat(messages, [_REVIEW_TOOL], _REVIEW_ONLY)
+        except Exception as exc:
+            res.trace.append({"step": step, "type": "review", "error": f"{exc}"[:300]})
+            return []
+        self._account(res, turn)
+        res.reviews += 1
+        issues: list[str] = []
+        verdict = "ok"
+        for call in turn.tool_calls:
+            try:
+                args = json.loads(call.arguments or "{}")
+            except json.JSONDecodeError:
+                continue
+            if isinstance(args, dict):
+                verdict = str(args.get("verdict", "ok"))
+                raw = args.get("issues", [])
+                issues = [str(i) for i in raw if str(i).strip()] if isinstance(raw, list) else []
+        if verdict == "ok":
+            issues = []
+        res.trace.append({"step": step, "type": "review", "verdict": verdict, "issues": issues})
+        return issues
 
     @staticmethod
     def _account(res: AgentResult, turn: ChatTurn) -> None:
