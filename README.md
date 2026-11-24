@@ -43,9 +43,15 @@ uv run python scripts/run_eval.py --system single_shot --split dev --run-name si
 
 ## Web UI
 
-One page: ask a question about a database, get the answer, the result table, a chart and the
-full agent trace (plan, every query with its errors and fixes, value lookups, the submit check,
-the grounding check). Ambiguous questions come back as a clarifying question with options.
+Four sections in a sidebar (a top bar on phones):
+- **Ask**: suggested questions, then the answer with a verification badge and tabs for the
+  chart, the result table (CSV download), the SQL (copy) and the steps the agent took (each
+  query, its errors and fixes, value lookups, the submit check, the grounding check).
+  Ambiguous questions come back as a clarifying question with options.
+- **History**: questions asked in this browser; reopening one shows the saved result without
+  re-running it.
+- **Data catalog**: searchable tables and columns with types, keys and example values.
+- **How it works**: the agent loop, safeguards, limits and a link to the evaluation log.
 Charts are drawn straight from the final query's rows, so they cannot show a number the query
 did not return. Limits: read-only SQL, $0.05 and 8 steps per question, a daily budget
 (`DATA_AGENT_DAILY_BUDGET_USD`, default $1) and 20 questions per visitor per hour.

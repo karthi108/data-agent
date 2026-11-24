@@ -266,3 +266,21 @@ and what changed since the previous run. Failures are explained, not hidden.
 - 8 tests (API, clarification round trip, budget refusal and persistence, rate limit, input
   limits, chart rules, and all 5 demo examples end to end on the real database, where every
   demo answer passes the grounding guard).
+
+## 2026-11-24: web UI redesign (no evaluation impact)
+
+- Sidebar navigation with four sections: Ask, History (saved in the browser, reopening does
+  not re-run or cost anything), Data catalog (new `/api/schema`: tables, columns, types, keys,
+  example values; searchable) and How it works (loop, safeguards, limits, link to this log).
+- Ask: suggested questions labelled by type; result card with the answer, a verification
+  badge, steps/time/cost, and tabs for Chart, Table (CSV download), SQL (formatted, copy) and
+  Steps (numbered timeline; failed steps open by default).
+- Look: IBM Plex Sans/Mono, neutral palette with one accent, light/dark/auto theme switch,
+  keyboard use (Enter to ask, `/` to focus, arrow keys on tabs), phone layout with a top bar.
+- Checked in the browser in demo mode: every view on phone width, desktop layout metrics,
+  light and dark themes, the self-correction trace, the clarification round trip, catalog
+  filtering, and reopening from History (no new API request). Fixed along the way: a tab-bar
+  scrollbar, a stretched top bar on short pages on phones, wrapped example IDs, and a cached
+  old page (now served with `Cache-Control: no-cache`).
+- The agent's own schema text is unchanged (the catalog uses a separate structured copy), so
+  this has no effect on agent behaviour or scores.

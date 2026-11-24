@@ -34,11 +34,28 @@ from data_agent.web.chart import build_chart
 STATIC = Path(__file__).parent / "static"
 
 EXAMPLES: list[dict[str, str]] = [
-    {"label": "Spending by category", "question": "How much did we spend in each budget category?"},
-    {"label": "Events per month", "question": "How many events did we hold each month?"},
-    {"label": "Biggest majors", "question": "Which five majors have the most club members?"},
-    {"label": "Ambiguous: biggest expense", "question": "What was our biggest expense?"},
     {
+        "tag": "Breakdown",
+        "label": "Spending by category",
+        "question": "How much did we spend in each budget category?",
+    },
+    {
+        "tag": "Trend",
+        "label": "Events per month",
+        "question": "How many events did we hold each month?",
+    },
+    {
+        "tag": "Ranking",
+        "label": "Biggest majors",
+        "question": "Which five majors have the most club members?",
+    },
+    {
+        "tag": "Ambiguous on purpose",
+        "label": "Ambiguous: biggest expense",
+        "question": "What was our biggest expense?",
+    },
+    {
+        "tag": "Needs a self-correction",
         "label": "Needs a fix: Kickoff costs",
         "question": "What did we spend in total on expenses for the Yearly Kickoff event?",
     },
@@ -88,8 +105,9 @@ def create_app(
     model = model_factory()
 
     @app.get("/", response_class=HTMLResponse)
-    def index() -> str:
-        return (STATIC / "index.html").read_text(encoding="utf-8")
+    def index() -> HTMLResponse:
+        page = (STATIC / "index.html").read_text(encoding="utf-8")
+        return HTMLResponse(page, headers={"Cache-Control": "no-cache"})
 
     @app.get("/api/config")
     def get_config() -> dict[str, Any]:
@@ -101,6 +119,10 @@ def create_app(
             "budget_left_usd": round(budget.remaining(), 4),
             "max_cost_per_question_usd": config.cost_cap_usd,
         }
+
+    @app.get("/api/schema")
+    def get_schema() -> dict[str, Any]:
+        return {"database": db_file.stem, "tables": Database(db_file).schema_info()}
 
     @app.post("/api/ask")
     def ask(req: AskRequest, request: Request) -> dict[str, Any]:

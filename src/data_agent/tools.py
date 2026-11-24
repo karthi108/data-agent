@@ -42,6 +42,7 @@ VALUES_SHOWN = 25  # column_values: most frequent values returned
 EXAMPLE_VALUES = 3  # schema overview: example values per column
 EXAMPLE_TIMEOUT_S = 2.0
 _SCHEMA_CACHE: dict[str, str] = {}
+_INFO_CACHE: dict[str, list[dict[str, Any]]] = {}
 _SCHEMA_LOCK = threading.Lock()
 
 
@@ -183,6 +184,41 @@ class Database:
             if key not in _SCHEMA_CACHE:
                 _SCHEMA_CACHE[key] = self._build_overview()
             return _SCHEMA_CACHE[key]
+
+    def schema_info(self) -> list[dict[str, Any]]:
+        """The same schema as ``schema_overview`` in structured form (for the web Data view)."""
+        key = str(self.path.resolve())
+        with _SCHEMA_LOCK:
+            if key not in _INFO_CACHE:
+                _INFO_CACHE[key] = self._build_info()
+            return _INFO_CACHE[key]
+
+    def _build_info(self) -> list[dict[str, Any]]:
+        conn = self._conn()
+        out: list[dict[str, Any]] = []
+        try:
+            for table in self.tables():
+                cols = conn.execute(f'PRAGMA table_info("{table}")').fetchall()
+                fks = conn.execute(f'PRAGMA foreign_key_list("{table}")').fetchall()
+                fk_by_col = {str(f[3]): f"{f[2]}.{f[4]}" for f in fks}
+                columns = []
+                for c in cols:
+                    name = str(c[1])
+                    raw = _examples(conn, table, name)
+                    examples = json.loads(raw) if raw != "[?]" else []
+                    columns.append(
+                        {
+                            "name": name,
+                            "type": str(c[2]),
+                            "primary_key": bool(c[5]),
+                            "references": fk_by_col.get(name),
+                            "examples": examples,
+                        }
+                    )
+                out.append({"table": table, "columns": columns})
+        finally:
+            conn.close()
+        return out
 
     def _build_overview(self) -> str:
         conn = self._conn()

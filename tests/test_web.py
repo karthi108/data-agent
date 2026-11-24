@@ -58,10 +58,20 @@ def client(db_file: Path, budget: DailyBudget | None = None, limit: int = 20) ->
 
 def test_page_and_config(db_file: Path) -> None:
     c = client(db_file)
-    assert "Agent trace" in c.get("/").text
+    page = c.get("/").text
+    assert all(v in page for v in ("Data catalog", "History", "How it works"))
     cfg = c.get("/api/config").json()
     assert cfg["database"] == "shop" and cfg["tables"] == ["sales"]
     assert cfg["demo"] is False and len(cfg["examples"]) == 5
+
+
+def test_schema_catalog(db_file: Path) -> None:
+    d = client(db_file).get("/api/schema").json()
+    assert d["database"] == "shop"
+    [table] = d["tables"]
+    assert table["table"] == "sales"
+    assert [c["name"] for c in table["columns"]] == ["region", "amount"]
+    assert table["columns"][0]["examples"] == ["N", "S"]
 
 
 def test_answer_with_result_chart_and_trace(db_file: Path) -> None:
