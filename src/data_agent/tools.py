@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -33,6 +35,39 @@ _FORBIDDEN: tuple[type[exp.Expression], ...] = (
     exp.TruncateTable, exp.Command, exp.Pragma, exp.Attach, exp.Detach, exp.Transaction,
     exp.Commit, exp.Set, exp.Use, exp.Copy, exp.LoadData,
 )  # fmt: skip
+
+
+VALUES_SHOWN = 25  # column_values: most frequent values returned
+EXAMPLE_VALUES = 3  # schema overview: example values per column
+EXAMPLE_TIMEOUT_S = 2.0
+_SCHEMA_CACHE: dict[str, str] = {}
+_SCHEMA_LOCK = threading.Lock()
+
+
+def _deadline(conn: sqlite3.Connection, seconds: float) -> None:
+    end = time.perf_counter() + seconds
+    conn.set_progress_handler(lambda: int(time.perf_counter() > end), 10_000)
+
+
+def _examples(conn: sqlite3.Connection, table: str, column: str) -> str:
+    _deadline(conn, EXAMPLE_TIMEOUT_S)
+    try:
+        rows = conn.execute(
+            f'SELECT DISTINCT "{column}" FROM "{table}" WHERE "{column}" IS NOT NULL '
+            f"LIMIT {EXAMPLE_VALUES}"
+        ).fetchall()
+    except sqlite3.Error:
+        return "[?]"
+    finally:
+        conn.set_progress_handler(None, 0)
+    vals = []
+    for (v,) in rows:
+        if isinstance(v, str):
+            v = v if len(v) <= 40 else v[:40] + "..."
+        elif isinstance(v, bytes):
+            v = f"<{len(v)} bytes>"
+        vals.append(v)
+    return json.dumps(vals, ensure_ascii=False, default=str)
 
 
 class UnsafeQueryError(ValueError):
@@ -122,13 +157,90 @@ class Database:
             conn.close()
         return json.dumps(out, ensure_ascii=False)
 
+    def _resolve_table(self, name: str) -> str | None:
+        # Names are matched against the catalogue, never interpolated from free text.
+        wanted = name.strip().strip('"`[]').lower()
+        return next((t for t in self.tables() if t.lower() == wanted), None)
+
+    def _columns(self, table: str) -> list[tuple[Any, ...]]:
+        conn = self._conn()
+        try:
+            return list(conn.execute(f'PRAGMA table_info("{table}")').fetchall())
+        finally:
+            conn.close()
+
+    def schema_overview(self) -> str:
+        """Compact schema: every table and column with type, keys and up to 3 example values.
+
+        Computed once per database file and cached (it is the same for every question).
+        """
+        key = str(self.path.resolve())
+        with _SCHEMA_LOCK:
+            if key not in _SCHEMA_CACHE:
+                _SCHEMA_CACHE[key] = self._build_overview()
+            return _SCHEMA_CACHE[key]
+
+    def _build_overview(self) -> str:
+        conn = self._conn()
+        lines: list[str] = []
+        try:
+            for table in self.tables():
+                cols = conn.execute(f'PRAGMA table_info("{table}")').fetchall()
+                fks = conn.execute(f'PRAGMA foreign_key_list("{table}")').fetchall()
+                lines.append(f"TABLE {table}")
+                for c in cols:
+                    name, ctype, pk = str(c[1]), str(c[2]), bool(c[5])
+                    examples = _examples(conn, table, name)
+                    flags = " PRIMARY KEY" if pk else ""
+                    lines.append(f"  {name} {ctype}{flags} -- examples: {examples}")
+                for f in fks:
+                    lines.append(f"  FOREIGN KEY ({f[3]}) REFERENCES {f[2]}({f[4]})")
+        finally:
+            conn.close()
+        return "\n".join(lines)
+
+    def column_values(self, table: str, column: str, contains: str = "") -> str:
+        """Most frequent distinct values of a column (optionally those containing a substring)."""
+        resolved = self._resolve_table(table)
+        if resolved is None:
+            return json.dumps({"error": f"no table named {table!r}", "tables": self.tables()})
+        names = [str(c[1]) for c in self._columns(resolved)]
+        col = next((n for n in names if n.lower() == column.strip().strip('"`[]').lower()), None)
+        if col is None:
+            return json.dumps({"error": f"no column {column!r} in {resolved}", "columns": names})
+        where, params = "", tuple[str, ...]()
+        if contains:
+            where, params = f' WHERE CAST("{col}" AS TEXT) LIKE ?', (f"%{contains}%",)
+        sql = (
+            f'SELECT "{col}", COUNT(*) AS n FROM "{resolved}"{where} '
+            f'GROUP BY "{col}" ORDER BY n DESC LIMIT {VALUES_SHOWN}'
+        )
+        count_sql = f'SELECT COUNT(DISTINCT "{col}") FROM "{resolved}"{where}'
+        conn = self._conn()
+        try:
+            _deadline(conn, self.query_timeout_s)
+            rows = conn.execute(sql, params).fetchall()
+            distinct = conn.execute(count_sql, params).fetchone()[0]
+        except sqlite3.Error as exc:
+            return json.dumps({"error": f"{type(exc).__name__}: {exc}"})
+        finally:
+            conn.close()
+        return json.dumps(
+            {
+                "table": resolved,
+                "column": col,
+                "filter": contains or None,
+                "distinct_values": distinct,
+                "top_values": [{"value": _short(v), "rows": n} for v, n in rows],
+            },
+            ensure_ascii=False,
+            default=str,
+        )
+
     def describe_table(self, name: str) -> str:
-        # The name must be an existing table: it is matched against the catalogue, never
-        # interpolated from free text.
-        matches = [t for t in self.tables() if t.lower() == name.strip().strip('"`[]').lower()]
-        if not matches:
+        table = self._resolve_table(name)
+        if table is None:
             return json.dumps({"error": f"no table named {name!r}", "tables": self.tables()})
-        table = matches[0]
         conn = self._conn()
         try:
             cols = conn.execute(f'PRAGMA table_info("{table}")').fetchall()

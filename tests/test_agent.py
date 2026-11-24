@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from data_agent.agent import Agent
+from data_agent.agent import Agent, AgentConfig
 from data_agent.llm import ChatTurn, ToolCall, assistant_message
 from data_agent.tools import Database
 
@@ -74,11 +74,15 @@ def test_full_loop_with_error_and_fix(db: Database) -> None:
     assert res.final_sql == FINAL
     assert res.steps == 5
     types = [e["type"] for e in res.trace]
-    assert types == ["question", "plan", "list_tables", "sql", "describe_table", "sql", "submit"]
+    assert types == [
+        "question", "plan", "list_tables", "sql", "describe_table", "sql", "submit_check", "submit",
+    ]  # fmt: skip
     sql_events = [e for e in res.trace if e["type"] == "sql"]
     assert "no such column" in sql_events[0]["error"]
     assert sql_events[1]["preview"] == [["17"]]
-    assert "Hint: N is the north region" in model.calls[0]["messages"][1]["content"]
+    first_user = model.calls[0]["messages"][1]["content"]
+    assert "Hint: N is the north region" in first_user
+    assert "TABLE sales" in first_user and "examples:" in first_user  # schema up front
     # every tool call got a tool reply before the next model call
     second_call = model.calls[1]["messages"]
     assert second_call[-1]["role"] == "tool" and second_call[-1]["tool_call_id"] == "call_0"
@@ -92,8 +96,8 @@ def test_last_step_forces_submit(db: Database) -> None:
             turn(("submit_answer", {"sql": FINAL, "answer": "17"})),
         ]
     )
-    res = Agent(model, max_steps=2).run(db, "q")
-    assert model.calls[0]["tool_choice"] == "required"
+    res = Agent(model, AgentConfig(max_steps=2)).run(db, "q")
+    assert model.calls[0]["tool_choice"] == "auto"  # plan turn
     assert model.calls[1]["tool_choice"] == {
         "type": "function",
         "function": {"name": "submit_answer"},
@@ -108,7 +112,7 @@ def test_cost_cap_falls_back_to_last_successful_query(db: Database) -> None:
             turn(("submit_answer", {"sql": "never", "answer": ""})),
         ]
     )
-    res = Agent(model, cost_cap_usd=0.05).run(db, "q")
+    res = Agent(model, AgentConfig(cost_cap_usd=0.05)).run(db, "q")
     assert res.stop_reason == "cost_cap"
     assert res.final_sql == FINAL
     assert res.trace[-1]["type"] == "fallback"
@@ -137,3 +141,54 @@ def test_model_error_is_recorded(db: Database) -> None:
     assert res.stop_reason == "model_error"
     assert res.final_sql == ""
     assert any(e["type"] == "error" for e in res.trace)
+
+
+def test_failed_submission_is_sent_back_then_fixed(db: Database) -> None:
+    model = FakeModel(
+        [
+            turn(("submit_answer", {"sql": "SELECT SUM(amt) FROM sales", "answer": "?"})),
+            turn(("submit_answer", {"sql": FINAL, "answer": "17"})),
+        ]
+    )
+    res = Agent(model).run(db, "q")
+    assert res.stop_reason == "submitted"
+    assert res.final_sql == FINAL
+    assert res.corrections == 1
+    rejection = json.loads(model.calls[1]["messages"][-1]["content"])
+    assert rejection["status"] == "rejected" and "no such column" in rejection["reason"]
+
+
+def test_empty_result_is_questioned_once(db: Database) -> None:
+    empty = "SELECT amount FROM sales WHERE region = 'X'"
+    model = FakeModel(
+        [
+            turn(("submit_answer", {"sql": empty, "answer": "none"})),
+            turn(("submit_answer", {"sql": empty, "answer": "none"})),
+        ]
+    )
+    res = Agent(model).run(db, "q")
+    assert res.final_sql == empty
+    assert res.corrections == 1
+    assert res.steps == 2
+
+
+def test_without_self_correction_any_submission_is_accepted(db: Database) -> None:
+    bad = "SELECT SUM(amt) FROM sales"
+    model = FakeModel([turn(("submit_answer", {"sql": bad, "answer": "?"}))])
+    res = Agent(model, AgentConfig(self_correct=False, schema_up_front=False)).run(db, "q")
+    assert res.final_sql == bad
+    assert res.corrections == 0
+    assert "TABLE" not in model.calls[0]["messages"][1]["content"]
+
+
+def test_column_values_tool(db: Database) -> None:
+    model = FakeModel(
+        [
+            turn(("column_values", {"table": "sales", "column": "region", "contains": ""})),
+            turn(("submit_answer", {"sql": FINAL, "answer": "17"})),
+        ]
+    )
+    Agent(model).run(db, "q")
+    out = json.loads(model.calls[1]["messages"][-1]["content"])
+    assert out["distinct_values"] == 2
+    assert out["top_values"][0] == {"value": "N", "rows": 2}

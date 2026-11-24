@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from data_agent import paths
-from data_agent.agent import COST_CAP_USD, MAX_STEPS, SYSTEM_PROMPT, TOOLS, Agent
+from data_agent.agent import SYSTEM_PROMPT, TOOLS, VERSION, Agent, AgentConfig
 from data_agent.baseline import extract_sql
 from data_agent.bird import Question, db_path, load_baseline_prompts, load_questions
 from data_agent.evaluate import Prediction, Record, System, run, summarize, write_records
@@ -115,6 +115,10 @@ def main() -> None:
     p.add_argument("--workers", type=int, default=8)
     p.add_argument("--limit", type=int, help="dev only: first N questions (smoke test)")
     p.add_argument("--confirm-frozen-heldout-run", action="store_true")
+    p.add_argument("--max-steps", type=int, default=AgentConfig.max_steps)
+    p.add_argument("--no-schema", action="store_true", help="agent: no schema in first message")
+    p.add_argument("--no-plan", action="store_true", help="agent: force tool use on step 1")
+    p.add_argument("--no-self-correct", action="store_true", help="agent: accept any submission")
     args = p.parse_args()
 
     load_dotenv(paths.REPO_ROOT / ".env")
@@ -152,11 +156,17 @@ def main() -> None:
             "prompts_sha256": hashlib.sha256(paths.BIRD_BASELINE_PROMPTS.read_bytes()).hexdigest(),
         }
     else:
-        system = agent_system(Agent(OpenAIChat(model=args.model)))
+        agent_config = AgentConfig(
+            max_steps=args.max_steps,
+            schema_up_front=not args.no_schema,
+            plan_turn=not args.no_plan,
+            self_correct=not args.no_self_correct,
+        )
+        system = agent_system(Agent(OpenAIChat(model=args.model), agent_config))
         config = {
-            "description": "data agent v1: schema tools + read-only run_sql + submit_answer",
-            "max_steps": MAX_STEPS,
-            "cost_cap_usd": COST_CAP_USD,
+            "description": f"data agent {VERSION}",
+            "agent_version": VERSION,
+            **agent_config.to_dict(),
             "query_timeout_s": QUERY_TIMEOUT_S,
             "system_prompt_sha256": sha256_text(SYSTEM_PROMPT),
             "tools_sha256": sha256_text(json.dumps(TOOLS, sort_keys=True)),
