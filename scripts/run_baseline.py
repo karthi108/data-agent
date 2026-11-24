@@ -125,6 +125,17 @@ def main() -> None:
             print(f"[{done:3d}/{len(ids)}] q{rec.question_id:<3d} {mark}", flush=True)
 
     started = datetime.now(UTC)
+    # Written before any question is sent: a crashed run still leaves evidence and, for the
+    # held-out split, still blocks a second attempt under the same name.
+    (out_dir / "run_started.json").write_text(
+        json.dumps(
+            {"started_utc": started.isoformat(timespec="seconds"), "n": len(ids), **vars(args)},
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+        newline="\n",
+    )
     t0 = time.perf_counter()
     records = run(system, (questions[i] for i in ids), workers=args.workers, on_record=progress)
     wall = time.perf_counter() - t0
