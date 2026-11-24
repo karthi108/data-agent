@@ -303,3 +303,18 @@ and what changed since the previous run. Failures are explained, not hidden.
 - Honest limit, written in `deploy/DEPLOY.md`: on the free plan the daily budget counter and
   the rate limit reset when the service restarts, so the hard spending ceiling must be an
   OpenAI project budget on a dedicated key.
+
+## 2026-11-24: dev check of the final agent (v4) before the held-out run
+
+- Agent v4 = v2 behaviour + forced-submit fallback + grounding guard + clarification rule and
+  `ask_user` tool (benchmark mode `decline`); reviewer off. Code at `def39e7`.
+- Run: [`results/dev/agent_v4_gpt41mini/`](results/dev/agent_v4_gpt41mini/).
+  **Dev EX 46.7% (70/150)**. Against v2's two runs (48.0%, 47.3%): better on 14 questions,
+  worse on 18, p = 0.60 ([`noise_dev_agent_v2_vs_v4.json`](noise_dev_agent_v2_vs_v4.json)).
+  Within noise: the late changes did not measurably hurt accuracy.
+- Grounding guard on 150 real answers: 118 pass, 2 pass after the retry, 1 blocked,
+  28 with no numbers, 1 with no answer. Clarification: the agent asked 0 times on the 150
+  BIRD questions (already clarified by the benchmark), so no sign of over-asking.
+- Cost $1.12 ($0.0075 per question); latency p50 7.2 s, p95 17.6 s; 5.1 steps per question.
+- Decision: this version (v4, unchanged) goes to the held-out run. `git.dirty: true` was the
+  untracked video script only.
