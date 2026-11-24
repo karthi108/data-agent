@@ -1,0 +1,617 @@
+[
+  {
+    "run": "eval/results/dev/agent_v3_gpt41mini",
+    "review_verdicts": {
+      "ok": 61,
+      "fix": 63
+    },
+    "flagged_questions": 63,
+    "effect": {
+      "fixed": 10,
+      "broken": 8,
+      "same": 45
+    },
+    "flagged_detail": [
+      {
+        "question_id": 2,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 8,
+        "effect": "broken",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 13,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 26,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 27,
+        "effect": "broken",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 40,
+        "effect": "same",
+        "stop_reason": "forced_submit_failed"
+      },
+      {
+        "question_id": 46,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 54,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 61,
+        "effect": "fixed",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 68,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 78,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 79,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 92,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 98,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 99,
+        "effect": "broken",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 102,
+        "effect": "broken",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 104,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 106,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 122,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 130,
+        "effect": "broken",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 133,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 137,
+        "effect": "fixed",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 142,
+        "effect": "fixed",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 146,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 147,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 160,
+        "effect": "broken",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 164,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 183,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 194,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 202,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 204,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 205,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 207,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 209,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 217,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 228,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 251,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 253,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 262,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 281,
+        "effect": "fixed",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 282,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 292,
+        "effect": "fixed",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 295,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 303,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 308,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 316,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 332,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 335,
+        "effect": "fixed",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 346,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 376,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 378,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 389,
+        "effect": "broken",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 391,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 399,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 411,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 413,
+        "effect": "broken",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 418,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 442,
+        "effect": "fixed",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 444,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 479,
+        "effect": "fixed",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 481,
+        "effect": "fixed",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 487,
+        "effect": "fixed",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 492,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      }
+    ]
+  },
+  {
+    "run": "eval/results/dev/agent_v3_gpt41mini_rep2",
+    "review_verdicts": {
+      "ok": 70,
+      "fix": 54
+    },
+    "flagged_questions": 54,
+    "effect": {
+      "fixed": 5,
+      "broken": 7,
+      "same": 42
+    },
+    "flagged_detail": [
+      {
+        "question_id": 8,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 12,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 13,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 26,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 27,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 37,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 40,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 46,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 54,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 56,
+        "effect": "fixed",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 61,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 68,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 78,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 79,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 98,
+        "effect": "broken",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 102,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 104,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 106,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 122,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 130,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 133,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 137,
+        "effect": "fixed",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 142,
+        "effect": "broken",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 146,
+        "effect": "broken",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 147,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 153,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 183,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 194,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 205,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 207,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 209,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 228,
+        "effect": "broken",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 253,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 255,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 303,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 308,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 316,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 332,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 335,
+        "effect": "fixed",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 346,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 376,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 378,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 384,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 391,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 400,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 411,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 412,
+        "effect": "broken",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 413,
+        "effect": "broken",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 442,
+        "effect": "fixed",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 444,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 469,
+        "effect": "same",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 486,
+        "effect": "broken",
+        "stop_reason": "submitted"
+      },
+      {
+        "question_id": 492,
+        "effect": "same",
+        "stop_reason": "forced_submit"
+      },
+      {
+        "question_id": 493,
+        "effect": "fixed",
+        "stop_reason": "submitted"
+      }
+    ]
+  }
+]

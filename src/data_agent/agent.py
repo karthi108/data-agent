@@ -40,7 +40,9 @@ class AgentConfig:
     plan_turn: bool = True
     self_correct: bool = True
     step_reminder: bool = True
-    review: bool = True  # v3: reviewer checks the submitted query against the question once
+    # v3 reviewer: measured on dev as net zero (15 fixed, 15 broken over 2 runs) for +30% cost,
+    # so it is off by default. Kept for future measurement (run_eval.py --review).
+    review: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

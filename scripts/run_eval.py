@@ -119,7 +119,7 @@ def main() -> None:
     p.add_argument("--no-schema", action="store_true", help="agent: no schema in first message")
     p.add_argument("--no-plan", action="store_true", help="agent: force tool use on step 1")
     p.add_argument("--no-self-correct", action="store_true", help="agent: accept any submission")
-    p.add_argument("--no-review", action="store_true", help="agent: no reviewer on submission")
+    p.add_argument("--review", action="store_true", help="agent: reviewer on submission (v3)")
     args = p.parse_args()
 
     load_dotenv(paths.REPO_ROOT / ".env")
@@ -162,7 +162,7 @@ def main() -> None:
             schema_up_front=not args.no_schema,
             plan_turn=not args.no_plan,
             self_correct=not args.no_self_correct,
-            review=not args.no_review,
+            review=args.review,
         )
         system = agent_system(Agent(OpenAIChat(model=args.model), agent_config))
         config = {

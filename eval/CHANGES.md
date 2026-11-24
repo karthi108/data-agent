@@ -146,3 +146,46 @@ and what changed since the previous run. Failures are explained, not hidden.
     about 1 question in 6 (≈ 23–25 of 150), not just a total that moves by under a point;
   - the held-out numbers will be single runs (PLAN.md), so a gap of a few points between
     systems there must be reported as within noise unless the paired test says otherwise.
+
+## 2026-11-24: agent v3 (reviewer), dev split, 2 runs: no gain, reviewer switched off
+
+- Motivation: in v2's 67 questions wrong in both runs, most errors were queries that do not do
+  exactly what the question says: extra helper columns (q292 returns the sort column, q479 a
+  group label), wrong row shape (q61 one aggregated cell instead of a list, q181 one row where
+  ties must all be listed), conditions missed or invented (q412 adds an unrequested filter;
+  q72 substring `LIKE` where exact keywords are meant), wrong counting grain (q411 rows instead
+  of patients). A few are debatable gold (q381 treats weight 0 as "not recorded"; q155 is 1
+  minute off from float rounding).
+- Change (v3, commits `9d8e4de` then `bab8818`): after a submitted query runs and returns rows, one
+  reviewer call compares question, SQL and result preview against a fixed checklist (columns,
+  row shape, ties, stated and invented conditions, counting grain, ratios and rounding, exact
+  vs substring matching) and sends up to 3 issues back to the agent once. The first version
+  listed up to 6 loose "issues" on the smoke test, so before the full runs it was tightened to
+  max 3, each quoting the question words it breaks (first smoke run kept as
+  [`results/dev/agent_v3a_gpt41mini__smoke3/`](results/dev/agent_v3a_gpt41mini__smoke3/)).
+  Also: a forced last-step submission that fails to run now falls back to the last query that
+  ran (6 times over the two runs).
+- Runs: [`agent_v3_gpt41mini`](results/dev/agent_v3_gpt41mini/) **50.0%** and
+  [`agent_v3_gpt41mini_rep2`](results/dev/agent_v3_gpt41mini_rep2/) **45.3%**, mean
+  **47.7%**: exactly v2's mean (48.0% / 47.3%).
+- Paired over 2 runs each (`scripts/compare_runs.py`):
+  - v3 vs v2: better on 21 questions, worse on 23, p = 0.88
+    ([`noise_dev_agent_v2_vs_v3.json`](noise_dev_agent_v2_vs_v3.json));
+  - v3 vs single-shot: +3.3 points, better on 34, worse on 34, p = 1.0
+    ([`noise_dev_baseline_vs_agent_v3.json`](noise_dev_baseline_vs_agent_v3.json)).
+- What the reviewer did (`scripts/review_effect.py`, scoring the query it sent back against the
+  final answer; [`review_effect_agent_v3.json`](review_effect_agent_v3.json)):
+  - it flagged about half of all submissions (63 of 124 reviews in run 1, 54 of 124 in run 2);
+  - of the flagged questions, **15 went from wrong to right and 15 from right to wrong** (87
+    unchanged). Net effect zero: the same model cannot reliably tell its own good queries from
+    bad ones;
+  - it eats the step budget: forced last-step submissions rose from ~23 per run (v2) to 54 and
+    50.
+- Cost $1.35 and $1.33 per run ($0.009 per question, +30% over v2); 5.9 steps per question.
+- Latency: run 1's p95 is 852 s because questions 303-335 all stalled about 14 minutes at the
+  same moment, an API stall with retries, not the agent (run 2: p50 10.5 s, p95 23.9 s).
+- Decision: **reviewer off by default** (`AgentConfig.review = False`, `--review` to switch it
+  on), since it adds cost and latency for no measured gain. The default agent is v2's behaviour
+  plus the forced-submit fallback.
+- `git.dirty: true` in both summaries: the other run's results folder and the smoke folders
+  were not committed yet; the agent code was the committed `bab8818`.

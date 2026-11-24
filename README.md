@@ -16,13 +16,16 @@ Every number here comes from a script in this repo; raw per-question results are
 
 | System | Split | Execution accuracy | Cost / question | Latency p50 / p95 |
 |---|---|---|---|---|
-| Single-shot text-to-SQL (`gpt-4.1-mini`, BIRD fixed prompt) | dev (150) | 44.0% (66/150) | $0.0020 | 4.9 s / 12.6 s |
+| Single-shot text-to-SQL (`gpt-4.1-mini`, BIRD fixed prompt) | dev (150), 2 runs | 44.0% / 44.7% | $0.0020 | 4.9 s / 12.6 s |
 | Agent v1 (tools + read-only SQL, no explicit self-correction) | dev (150) | 40.7% (61/150) | $0.0060 | 7.9 s / 15.1 s |
-| Agent v2 (+ schema up front, value lookup, submit check) | dev (150) | 48.0% (72/150) | $0.0068 | 6.4 s / 16.6 s |
+| Agent v2 (+ schema up front, value lookup, submit check) | dev (150), 2 runs | 48.0% / 47.3% | $0.0068 | 6.4 s / 16.6 s |
+| Agent v3 (v2 + reviewer, now off by default) | dev (150), 2 runs | 50.0% / 45.3% | $0.0089 | 10.5 s / 23.9 s* |
 
 Dev numbers are what we improve against, so they are not the quoted result. Run twice each, the
 baseline scored 44.0% / 44.7% and agent v2 48.0% / 47.3%; about 1 question in 6 flips between
-identical runs, and the agent's +3.3-point average lead is not significant (sign test p = 0.90). Held-out numbers:
+identical runs, and the agent's +3.3-point average lead is not significant (sign test p = 0.90).
+A reviewer step (v3) fixed 15 answers and broke 15, so it is off by default. *v3 latency is
+run 2; run 1 hit an API stall. Held-out numbers:
 none yet. The held-out set is run once per system, after development is done.
 
 ## Reproduce

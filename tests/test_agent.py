@@ -86,7 +86,7 @@ def test_full_loop_with_error_and_fix(db: Database) -> None:
     types = [e["type"] for e in res.trace]
     assert types == [
         "question", "plan", "list_tables", "sql", "describe_table", "sql",
-        "submit_check", "review", "submit",
+        "submit_check", "submit",
     ]  # fmt: skip
     sql_events = [e for e in res.trace if e["type"] == "sql"]
     assert "no such column" in sql_events[0]["error"]
@@ -214,7 +214,7 @@ def test_reviewer_issue_is_sent_back_once_then_fixed(db: Database) -> None:
         ],
         reviews=[review("fix", "The question asks only for the total; drop the region column.")],
     )
-    res = Agent(model).run(db, "Total sales in N?")
+    res = Agent(model, AgentConfig(review=True)).run(db, "Total sales in N?")
     assert res.final_sql == FINAL
     assert res.corrections == 1
     assert res.reviews == 1  # reviewed once only; the fixed query is accepted without review
@@ -228,13 +228,13 @@ def test_reviewer_issue_is_sent_back_once_then_fixed(db: Database) -> None:
 
 def test_reviewer_ok_accepts_and_fix_verdict_needs_issues(db: Database) -> None:
     model = FakeModel([turn(("submit_answer", {"sql": FINAL, "answer": "17"}))])
-    res = Agent(model).run(db, "q")
+    res = Agent(model, AgentConfig(review=True)).run(db, "q")
     assert res.stop_reason == "submitted" and res.reviews == 1 and res.corrections == 0
 
 
-def test_review_can_be_switched_off(db: Database) -> None:
+def test_review_is_off_by_default(db: Database) -> None:
     model = FakeModel([turn(("submit_answer", {"sql": FINAL, "answer": "17"}))])
-    res = Agent(model, AgentConfig(review=False)).run(db, "q")
+    res = Agent(model).run(db, "q")
     assert res.reviews == 0 and model.review_calls == []
 
 
@@ -259,7 +259,7 @@ def test_reviewer_issues_are_capped(db: Database) -> None:
         ],
         reviews=[review("fix", "a", "b", "c", "d", "e")],
     )
-    res = Agent(model).run(db, "q")
+    res = Agent(model, AgentConfig(review=True)).run(db, "q")
     review_event = next(e for e in res.trace if e["type"] == "review")
     assert review_event["issues"] == ["a", "b", "c"]
     assert res.final_sql == FINAL  # resubmitted unchanged, accepted
