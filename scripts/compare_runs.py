@@ -28,7 +28,7 @@ def sign_test(wins: int, losses: int) -> float:
     n = wins + losses
     if n == 0:
         return 1.0
-    tail = sum(comb(n, k) for k in range(max(wins, losses), n + 1)) / 2**n
+    tail: float = sum(comb(n, k) for k in range(max(wins, losses), n + 1)) / 2**n
     return min(1.0, 2 * tail)
 
 
