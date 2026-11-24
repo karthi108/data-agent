@@ -1,0 +1,44 @@
+{
+  "questions": 500,
+  "errors": 0,
+  "empty": 0,
+  "slow_over_5s": [
+    {
+      "question_id": 119,
+      "seconds": 5.1
+    },
+    {
+      "question_id": 174,
+      "seconds": 5.3
+    },
+    {
+      "question_id": 129,
+      "seconds": 5.3
+    },
+    {
+      "question_id": 486,
+      "seconds": 8.1
+    },
+    {
+      "question_id": 107,
+      "seconds": 9.5
+    },
+    {
+      "question_id": 253,
+      "seconds": 9.8
+    },
+    {
+      "question_id": 117,
+      "seconds": 11.0
+    },
+    {
+      "question_id": 229,
+      "seconds": 18.9
+    },
+    {
+      "question_id": 40,
+      "seconds": 32.1
+    }
+  ],
+  "max_seconds": 32.15
+}
