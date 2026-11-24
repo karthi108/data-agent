@@ -88,3 +88,39 @@ and what changed since the previous run. Failures are explained, not hidden.
 - Next (dev only): show distinct values / value search, raise or rebalance the step budget,
   verify the submitted query before accepting it, let the first turn plan without forcing a
   tool call.
+
+## 2026-11-24: agent v2, dev split (above the baseline, but within noise)
+
+- Changes from v1 (commit `17e5cb9`), each switchable in `AgentConfig`:
+  1. schema overview in the first message (tables, columns, types, keys, 3 example values per
+     column), so no steps are spent rediscovering it;
+  2. new `column_values` tool: most frequent distinct values of a column, optional substring
+     search, so filters use values that exist;
+  3. step 1 may answer without a tool call, so the model can write a plan;
+  4. self-correction on submit: the submitted query is executed and sent back if it fails or
+     returns 0 rows (the 0-row check is asked once);
+  5. a reminder when 2 steps are left.
+  Same limits as v1: 8 steps, $0.05 per question, 5 s per query.
+- Script: `scripts/run_eval.py --system agent --split dev --run-name agent_v2_gpt41mini`.
+  Raw results and traces: [`results/dev/agent_v2_gpt41mini/`](results/dev/agent_v2_gpt41mini/).
+- **Dev execution accuracy: 48.0% (72/150)**: +7.3 points over v1 (40.7%), +4.0 over the
+  single-shot baseline (44.0%).
+- **The gain over the baseline is not significant.** Per question, v2 is right where the
+  baseline is wrong 27 times and the reverse 21 times (45 both right); a two-sided sign test on
+  those 48 gives p = 0.47. One run each, so this is "about the same as single-shot, slightly
+  ahead", not a proven improvement.
+- Cost $1.02 total ($0.0068 per question, 3.4x the baseline); latency p50 6.4 s, p95 16.6 s;
+  4.9 steps per question (v1: 6.0).
+- What changed in behaviour:
+  - forced submissions fell from 41 to 23 (7 of those 23 right; 65/127 = 51% right when the
+    agent submitted on its own);
+  - SQL errors in submitted queries fell from 5 to 0, and v2 called `column_values` 251 times;
+  - the self-correction gate itself almost never fired: only 1 question had a submission sent
+    back (and it stayed wrong). The gain comes from the schema and the value lookups, not from
+    the submit check. This matters for the planned "no self-correction" ablation;
+  - still no written plan: 0/150 traces have one, even with tool use optional on step 1.
+- Remaining failures: 60 wrong values, 14 wrong row count, 2 wrong columns, 1 timeout (q188),
+  1 float precision only. Most errors are now logic, not syntax: wrong grain, wrong
+  denominator, wrong tie handling.
+- `git.dirty: true` is again only the untracked 3-question smoke run
+  ([`results/dev/agent_v2_gpt41mini__smoke3/`](results/dev/agent_v2_gpt41mini__smoke3/)).

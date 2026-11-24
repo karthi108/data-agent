@@ -1,0 +1,72 @@
+{
+  "run_name": "agent_v2_gpt41mini",
+  "system": "agent",
+  "config": {
+    "description": "data agent v2",
+    "agent_version": "v2",
+    "max_steps": 8,
+    "cost_cap_usd": 0.05,
+    "schema_up_front": true,
+    "plan_turn": true,
+    "self_correct": true,
+    "step_reminder": true,
+    "query_timeout_s": 5.0,
+    "system_prompt_sha256": "5476474a7df27412337abd040dc23c7cda8bbcdfff054840c3f639b9cefcc185",
+    "tools_sha256": "f3d9cecf06be2fede2f4107bf3917d61bc5aef0a77c40497cf1c0a1960405a2e"
+  },
+  "split": "dev",
+  "limit": 3,
+  "model": "gpt-4.1-mini",
+  "temperature": 0,
+  "started_utc": "2026-11-24T10:16:28+00:00",
+  "wall_clock_s": 22.5,
+  "workers": 8,
+  "git": {
+    "commit": "17e5cb934a4fb5118012ee413eb85b71f19c0ca0",
+    "dirty": true
+  },
+  "split_ids_sha256": "57a91fd7c896500e9b46c531056dad163e86d808a5434d3cc44c765cdc22aa47",
+  "metric": "BIRD strict execution accuracy: set(pred_rows) == set(gold_rows)",
+  "overall": {
+    "n": 3,
+    "correct": 1,
+    "ex": 33.33
+  },
+  "by_difficulty": {
+    "challenging": {
+      "n": 1,
+      "correct": 1,
+      "ex": 100.0
+    },
+    "moderate": {
+      "n": 2,
+      "correct": 0,
+      "ex": 0.0
+    }
+  },
+  "by_db": {
+    "california_schools": {
+      "n": 3,
+      "correct": 1,
+      "ex": 33.33
+    }
+  },
+  "failures": {
+    "wrong_result": 2
+  },
+  "cost_usd_total": 0.0278,
+  "cost_usd_per_question": 0.00927,
+  "latency_s_p50": 6.44,
+  "latency_s_p95": 22.49,
+  "avg_steps": 4.67,
+  "max_steps": 8,
+  "stop_reasons": {
+    "forced_submit": 1,
+    "submitted": 2
+  },
+  "input_tokens_total": 59959,
+  "output_tokens_total": 2383,
+  "served_models": [
+    "gpt-4.1-mini-2025-04-14"
+  ]
+}
